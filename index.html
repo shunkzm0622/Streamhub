@@ -220,7 +220,7 @@ function probePreview(state) {
   }
   state.status = 'checking';
   runningPreviews.set(channel.url, () => finish('cancel'));
-  timer = setTimeout(() => finish('error'), 12000);
+  timer = setTimeout(() => finish('error'), 5000);
   media.onerror = () => finish('error');
   try {
     if (active?.key === channel.key) {
