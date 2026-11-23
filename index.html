@@ -24,24 +24,21 @@
     @media(max-width:1080px){.app{grid-template-columns:218px minmax(0,1fr)}.workspace{padding:0 20px 32px}.sidebar{padding:20px 9px}.topbar{gap:12px}.heading h1{font-size:21px}}
     @media(max-width:790px){.app{display:block}.sidebar{display:none}.workspace{padding:0 14px 25px}.topbar{min-height:85px;margin-bottom:21px}.topbar .heading p{display:none}.heading h1{font-size:19px}.mobile-category{display:block}.panel{padding:15px}.channels-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
     @media(max-width:515px){.topbar{align-items:stretch;flex-direction:column;justify-content:center;padding:15px 0;gap:10px}.top-actions{width:100%}.top-actions .btn-primary{padding:11px}.stage{min-height:190px}.player-header{padding:11px 12px}.player-actions{padding:10px}.player-actions .btn{padding:8px 9px}.play-info{margin:0 12px 14px}.channels-grid{grid-template-columns:1fr;max-height:450px}.channel{padding:10px}.panel-controls{flex-wrap:wrap;justify-content:flex-end}.panel-head{align-items:flex-start}.panel-head h2{font-size:16px}.modal{padding:16px}.tabs{gap:5px}.tab{font-size:12px}.player-tag{display:none}}
+    .app{display:block}.workspace{max-width:1560px}.topbar .logo{padding:0}.logo-name{margin:0}
+    .content{max-width:none;grid-template-columns:minmax(0,1fr) minmax(300px,370px);align-items:start}
+    .panel{min-width:0}.panel-head{flex-direction:column;align-items:flex-start}.panel-controls{flex-wrap:wrap;justify-content:flex-start}
+    .filter-label{display:block;margin-bottom:5px;font-size:12px;color:#a8b9cd}
+    .mobile-category{display:block;width:100%;max-width:none;margin-bottom:8px}
+    .channels-grid{grid-template-columns:minmax(0,1fr);max-height:65vh;overflow-y:auto}
+    @media(max-width:840px){.content{grid-template-columns:minmax(0,1fr)}.channels-grid{max-height:55vh}}
   </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <div class="logo"><div class="logo-mark">▶</div><div><div class="logo-name">StreamHub<span style="color:#73eee4">.</span></div><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
-    <div class="side-label">Thư viện</div>
-    <button class="nav-item active" data-filter="all"><span class="nav-name"><span class="glyph">▦</span>Tất cả kênh</span><span class="nav-count" id="allCount">0</span></button>
-    <button class="nav-item" data-filter="favorites"><span class="nav-name"><span class="glyph">☆</span>Yêu thích</span><span class="nav-count" id="favCount">0</span></button>
-    <button class="nav-item" data-filter="signal"><span class="nav-name"><span class="glyph">●</span>Signal</span><span class="nav-count" id="signalCount">0</span></button>
-    <button class="nav-item" data-filter="no-signal"><span class="nav-name"><span class="glyph">⊘</span>No signal</span><span class="nav-count" id="noSignalCount">0</span></button>
-    <div class="side-label">Danh mục</div><div class="side-groups" id="sidebarGroups"></div>
-    <div class="side-bottom"><div class="side-small">Dùng trực tiếp trên <b>GitHub Pages</b>.<br/>Danh sách đã nhập được lưu cục bộ trên trình duyệt này.<br/><button class="linklike" id="manageSources">Quản lý nguồn phát →</button></div></div>
-  </aside>
   <main class="workspace">
     <header class="topbar">
-      <div class="heading"><h1>Trung tâm phát trực tuyến</h1><p>IPTV · HLS / M3U8 · MP4 · JSON · Live Camera</p></div>
-      <div class="top-actions"><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
+      <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">StreamHub<span style="color:#73eee4">.</span></h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
+      <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
     </header>
     <div class="content">
       <section>
@@ -54,7 +51,9 @@
         </article>
       </section>
       <section class="panel">
-        <div class="panel-head"><div><h2>Danh sách kênh <span id="resultCount" style="color:#7ee7db;font-size:13px;margin-left:4px">0</span></h2><div class="panel-sub" id="sourceSummary">Chưa có playlist. Hãy thêm nguồn để bắt đầu.</div></div><div class="panel-controls"><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button class="btn btn-soft btn-sm" id="reloadChannels" title="Kiểm tra lại các kênh No signal">↻ Reload kênh</button><button class="btn btn-soft btn-sm" id="showDemo">▷ Kênh demo</button><button class="btn btn-soft btn-sm" id="exportBtn" title="Xuất danh sách thành JSON">↓ JSON</button></div></div>
+        <div class="panel-head"><div><h2>Danh sách kênh <span id="resultCount" style="color:#7ee7db;font-size:13px;margin-left:4px">0</span></h2><div class="panel-sub" id="sourceSummary">Chưa có playlist. Hãy thêm nguồn để bắt đầu.</div></div><div class="panel-controls"><button class="btn btn-soft btn-sm" id="reloadChannels" title="Kiểm tra lại các kênh No signal">↻ Reload kênh</button><button class="btn btn-soft btn-sm" id="showDemo">▷ Kênh demo</button><button class="btn btn-soft btn-sm" id="exportBtn" title="Xuất danh sách thành JSON">↓ JSON</button></div></div>
+        <label class="filter-label" for="mobileCategory">Danh mục</label>
+        <select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select>
         <label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label>
         <div class="channels-grid" id="channelsList"></div>
         <div class="footer-note">Hỗ trợ phát <b>HLS (.m3u8)</b>, <b>MP4 / WebM</b>, một số dạng luồng được trình duyệt hỗ trợ và <b>ảnh camera</b>. Nguồn HTTP, CORS, DRM hoặc yêu cầu header đặc biệt có thể không phát được trên GitHub Pages.</div>
@@ -142,13 +141,11 @@ function rebuild(){channels=[];for(const source of sources.filter(source => sour
 function groups(){const counts=new Map();channels.forEach(c=>counts.set(c.group,(counts.get(c.group)||0)+1));return [...counts].sort((a,b)=>a[0].localeCompare(b[0],'vi'));}
 function counts(){return{all:channels.length,favorites:channels.filter(c=>favorites.has(c.url)).length};}
 function chooseFilter(newFilter){filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;if(window.innerWidth<790) document.querySelector('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
-function makeSidebarNav(name,n,filterId,icon){const btn=document.createElement('button');btn.type='button';btn.className='nav-item'+(filter===filterId?' active':'');btn.dataset.filter=filterId;
-  const label=document.createElement('span');label.className='nav-name';const glyph=document.createElement('span');glyph.className='glyph';glyph.textContent=icon;label.append(glyph,document.createTextNode(name));const total=document.createElement('span');total.className='nav-count';total.textContent=n;btn.append(label,total);return btn;}
-function renderNav(){const cnt=counts();$('allCount').textContent=cnt.all;$('favCount').textContent=cnt.favorites;
-  document.querySelectorAll('.sidebar>.nav-item').forEach(e=>e.classList.toggle('active',e.dataset.filter===filter));
-  const container=$('sidebarGroups');container.replaceChildren();const sel=$('mobileCategory');sel.replaceChildren();
-  function option(value,label){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o);}option('all','Tất cả kênh');option('favorites','☆ Yêu thích');option('signal','Signal');option('no-signal','No signal');updateSignalCount();
-  for(const [name,n] of groups()){const id='group:'+name;container.appendChild(makeSidebarNav(name,n,id,'▤'));option(id,name+' ('+n+')');}
+function renderNav(){const cnt=counts();const sel=$('mobileCategory');sel.replaceChildren();
+  const library = document.createElement('optgroup'); library.label = 'Thư viện';
+  const categories = document.createElement('optgroup'); categories.label = 'Danh mục kênh'; sel.append(library,categories);
+  function option(value,label,parent=library){const o=document.createElement('option');o.value=value;o.textContent=label;parent.append(o);}option('all','Tất cả kênh ('+cnt.all+')');option('favorites','☆ Yêu thích ('+cnt.favorites+')');option('signal','Signal');option('no-signal','No signal');updateSignalCount();
+  for(const [name,n] of groups()){const id='group:'+name;option(id,name+' ('+n+')',categories);}
   if(![...sel.options].some(o=>o.value===filter))filter='all';sel.value=filter;
   $('sourceSummary').textContent= sources.length?`${sources.filter(source => source.enabled !== false).length}/${sources.length} nguồn đang bật · ${channels.length.toLocaleString('vi-VN')} kênh`:'Chưa có playlist. Hãy thêm nguồn để bắt đầu.';
 }
@@ -181,11 +178,9 @@ function queuePreviews() {
 
 function updateSignalCount() {
   const good = channels.filter(channel => previews.get(channel.url)?.status === 'ok').length;
-  $('signalCount').textContent = good;
   const signalOption = $('mobileCategory').querySelector('option[value="signal"]');
   if (signalOption) signalOption.textContent = 'Signal (' + good + ')';
   const count = channels.filter(channel => previews.get(channel.url)?.status === 'error').length;
-  $('noSignalCount').textContent = count;
   $('reloadChannels').disabled = !count || retrying.size > 0;
   $('reloadChannels').textContent = retrying.size ? 'Đang kiểm tra (' + retrying.size + ')' : '↻ Reload kênh';
   const option = $('mobileCategory').querySelector('option[value="no-signal"]');
@@ -392,7 +387,7 @@ $('importUrlBtn').addEventListener('click',()=>busy($('importUrlBtn'),(async()=>
 $('importPasteBtn').addEventListener('click',()=>{try{const text=$('pasteContent').value;if(!text.trim())throw Error('Chưa có nội dung để nhập.');const items=parseContent(text);addSource($('pasteLabel').value||'Danh sách dán',items);$('pasteContent').value='';modal(false);}catch(e){showToast(e.message,'err');}});
 async function processFile(file){if(!file)return;try{if(file.size>20*1024*1024)throw Error('File quá lớn (>20 MB). Hãy chia playlist thành nhiều phần nhỏ hơn.');const text=await file.text();const items=parseContent(text);addSource(file.name,items);modal(false);}catch(e){showToast(e.message,'err');}}
 $('dropZone').addEventListener('click',()=>$('fileInput').click());$('fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)processFile(f);e.target.value='';});for(const target of [$('dropZone'),document.body]){target.addEventListener('dragover',e=>{if([...e.dataTransfer?.types||[]].includes('Files')){e.preventDefault();$('dropZone').classList.add('drag');}});target.addEventListener('dragleave',()=>$('dropZone').classList.remove('drag'));target.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length){e.preventDefault();$('dropZone').classList.remove('drag');processFile(e.dataTransfer.files[0]);}});}
-$('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));document.querySelector('.sidebar').addEventListener('click',e=>{const btn=e.target.closest('[data-filter]');if(btn)chooseFilter(btn.dataset.filter);});$('sidebarGroups').addEventListener('click',e=>{const btn=e.target.closest('[data-filter]');if(btn)chooseFilter(btn.dataset.filter);});
+$('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
 $('showDemo').addEventListener('click',()=>{const existing=sources.find(s=>s.origin==='streamhub:demo');if(existing){if(existing.enabled===false){modal(true);showToast('Bật nguồn Demo HLS để phát kênh mẫu.');return;}const item=channels.find(c=>c.sourceId===existing.id);if(item)playChannel(item);return;}const src=addSource('Demo HLS',[channelObj({name:'Big Buck Bunny • Demo HLS',url:DEMO,group:'Demo / Kiểm tra'})],{origin:'streamhub:demo'});const item=channels.find(c=>c.sourceId===src.id);if(item)playChannel(item);});
 $('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='streamhub-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
 // Khởi động với thư viện của trình duyệt. `channels.json` trong GitHub repo là tùy chọn.
