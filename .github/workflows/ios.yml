@@ -24,7 +24,7 @@ jobs:
           test -s "$app/ShunEntertainment"
           test -s "$app/Web/index.html"
           test -s "$app/Web/channels.js"
-          xcrun lipo -verify_arch arm64 "$app/ShunEntertainment"
+          xcrun lipo "$app/ShunEntertainment" -verify_arch arm64
           test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$app/Info.plist")" = iphoneos
           mkdir -p package/Payload
           ditto "$app" package/Payload/ShunEntertainment.app
