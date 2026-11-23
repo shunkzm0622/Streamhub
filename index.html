@@ -32,6 +32,7 @@
     .channels-grid{grid-template-columns:minmax(0,1fr);max-height:65vh;overflow-y:auto}
     @media(max-width:840px){.content{grid-template-columns:minmax(0,1fr)}.channels-grid{max-height:55vh}}
       #mediaInfo:not([hidden]){display:flex;flex-wrap:wrap;gap:10px 24px;padding:0 18px 16px;margin:0}#mediaInfo dt{font-size:11px;color:#91a6bf}#mediaInfo dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
+  #iptvView[hidden],.top-actions [hidden]{display:none}#trafficView iframe{display:block;width:100%;height:calc(100dvh - 145px);min-height:420px;border:0;border-radius:12px;background:#10192b}.top-actions{flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -39,9 +40,9 @@
   <main class="workspace">
     <header class="topbar">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
-      <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
+      <div class="top-actions"><button type="button" class="btn btn-soft" id="trafficToggle" aria-controls="trafficView">Traffic camera</button><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
     </header>
-    <div class="content">
+    <div class="content" id="iptvView">
       <section>
         <div class="section-title"><span class="live-dot"></span> TRÌNH PHÁT</div>
         <article class="player-card">
@@ -61,6 +62,7 @@
         <div class="footer-note">Hỗ trợ phát <b>HLS (.m3u8)</b>, <b>MP4 / WebM</b>, một số dạng luồng được trình duyệt hỗ trợ và <b>ảnh camera</b>. Nguồn HTTP, CORS, DRM hoặc yêu cầu header đặc biệt có thể không phát được trên GitHub Pages.</div>
       </section>
     </div>
+    <section id="trafficView" aria-label="Camera giao thông TP.HCM" hidden></section>
   </main>
 </div>
 <div class="toast-area" id="toastArea" role="status" aria-live="polite"></div>
@@ -281,7 +283,7 @@ function probePreview(state) {
 }
 
 function pumpPreviews() {
-  if (document.hidden) return;
+  if (document.hidden || !$('trafficView').hidden) return;
   while (runningPreviews.size < 3 && previewQueue.length) {
     const state = previewQueue.pop();
     if (state.status === 'pending') probePreview(state);
@@ -425,7 +427,7 @@ $('copyCurrent').addEventListener('click',async()=>{if(!active)return;try{await 
 $('openCurrent').addEventListener('click',()=>{if(active)window.open(active.url,'_blank','noopener,noreferrer');});
 $('fullscreenBtn').addEventListener('click',()=>{const stage=$('stage');if(stage.requestFullscreen)stage.requestFullscreen().catch(()=>showToast('Không thể chuyển chế độ toàn màn hình.', 'warn'));});
 function modal(open){$('importModal').classList.toggle('open',open);if(open)renderSources();}
-$('openImport').addEventListener('click',()=>modal(true));$('manageSources').addEventListener('click',()=>modal(true));$('closeModal').addEventListener('click',()=>modal(false));$('doneModal').addEventListener('click',()=>modal(false));$('importModal').addEventListener('click',e=>{if(e.target===$('importModal'))modal(false);});document.addEventListener('keydown',e=>{if(e.key==='Escape')modal(false);if(e.key==='/'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$('searchInput').focus();}});
+$('openImport').addEventListener('click',()=>modal(true));$('manageSources').addEventListener('click',()=>modal(true));$('closeModal').addEventListener('click',()=>modal(false));$('doneModal').addEventListener('click',()=>modal(false));$('importModal').addEventListener('click',e=>{if(e.target===$('importModal'))modal(false);});document.addEventListener('keydown',e=>{if(e.key==='Escape')modal(false);if(e.key==='/'&&$('trafficView').hidden&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$('searchInput').focus();}});
 document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.tab-section').forEach(x=>x.classList.toggle('active',x.dataset.section===tab.dataset.tab));}));
 async function loadRemote(url){let res;try{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);try{res=await fetch(url,{signal:controller.signal,cache:'no-store'});}finally{clearTimeout(timer);}}catch(e){throw Error('Không tải được URL playlist. Máy chủ có thể chặn CORS, link đã hết hạn hoặc mất kết nối. Thử tải file M3U/JSON về máy rồi nhập qua “Chọn file”. ('+e.message+')');}if(!res.ok)throw Error(`Máy chủ trả về HTTP ${res.status} khi tải playlist.`);return await res.text();}
 function busy(button,promise){button.disabled=true;const old=button.textContent;button.textContent='◌ Đang xử lý...';return promise.finally(()=>{button.disabled=false;button.textContent=old;});}
@@ -462,6 +464,25 @@ async function loadGithubDefault(){
   }catch(e){console.info('Không tìm thấy channels.json mặc định hoặc dữ liệu không hợp lệ.',e.message);}
 }
 loadGithubDefault();
+$('trafficToggle').addEventListener('click', () => {
+  const view = $('trafficView'), open = view.hidden;
+  $('iptvView').hidden = open;
+  $('manageSources').hidden = open;
+  $('openImport').hidden = open;
+  view.hidden = !open;
+  $('trafficToggle').textContent = open ? '← Quay lại IPTV' : 'Traffic camera';
+  if (open) {
+    if (active) { stopPlayer(); renderList(); }
+    const frame = document.createElement('iframe');
+    frame.title = 'Traffic.Camera.HCM – Danh sách và bản đồ';
+    frame.src = 'https://shunkzm0622.github.io/Traffic.Camera.HCM/';
+    frame.allowFullscreen = true;
+    view.append(frame);
+  } else {
+    view.replaceChildren();
+    pumpPreviews();
+  }
+});
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dashjs@4/dist/dash.all.min.js" defer></script>
