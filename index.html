@@ -33,14 +33,17 @@
     @media(max-width:840px){.content{grid-template-columns:minmax(0,1fr)}.channels-grid{max-height:55vh}}
       #mediaInfo:not([hidden]){display:flex;flex-wrap:wrap;gap:10px 24px;padding:0 18px 16px;margin:0}#mediaInfo dt{font-size:11px;color:#91a6bf}#mediaInfo dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
   #iptvView[hidden],.top-actions [hidden]{display:none}#trafficView iframe{display:block;width:100%;height:calc(100dvh - 145px);min-height:420px;border:0;border-radius:12px;background:#10192b}.top-actions{flex-wrap:wrap}
+  .brand-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px 24px}.traffic-brand{display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:3px 8px;border:1px solid transparent;border-radius:12px;background:transparent;color:#eaf0ff;font:inherit;font-size:19px;font-weight:750;letter-spacing:-.4px}.traffic-brand:hover,.traffic-brand[aria-expanded="true"]{background:#17283b;border-color:#355267}.traffic-brand:focus-visible{outline:2px solid #79e3d7;outline-offset:2px}.camera-mark{position:relative;width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,#59ddd3,#7772f9)}.camera-mark::before,.camera-mark::after{content:"";position:absolute;background:#102135}.camera-mark::before{left:7px;top:12px;width:15px;height:12px;border-radius:3px}.camera-mark::after{left:23px;top:12px;width:6px;height:12px;clip-path:polygon(0 30%,100% 0,100% 100%,0 70%)}@media(max-width:790px){.topbar{flex-wrap:wrap}.brand-links{gap:4px 12px}}
   </style>
 </head>
 <body>
 <div class="app">
   <main class="workspace">
     <header class="topbar">
+      <div class="brand-links">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
-      <div class="top-actions"><button type="button" class="btn btn-soft" id="trafficToggle" aria-controls="trafficView">Traffic camera</button><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
+      <button type="button" class="traffic-brand" id="trafficToggle" aria-controls="trafficView" aria-expanded="false"><span class="camera-mark" aria-hidden="true"></span><span id="trafficLabel">Traffic camera</span></button></div>
+      <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
     </header>
     <div class="content" id="iptvView">
       <section>
@@ -470,7 +473,8 @@ $('trafficToggle').addEventListener('click', () => {
   $('manageSources').hidden = open;
   $('openImport').hidden = open;
   view.hidden = !open;
-  $('trafficToggle').textContent = open ? '← Quay lại IPTV' : 'Traffic camera';
+  $('trafficToggle').setAttribute('aria-expanded', String(open));
+  $('trafficLabel').textContent = open ? '← Quay lại IPTV' : 'Traffic camera';
   if (open) {
     if (active) { stopPlayer(); renderList(); }
     const frame = document.createElement('iframe');
