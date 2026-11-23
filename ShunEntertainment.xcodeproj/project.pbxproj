@@ -1,0 +1,172 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+
+	};
+	objectVersion = 56;
+	objects = {
+		000000000000000000000001 = {
+			isa = "PBXProject";
+			buildConfigurationList = "00000000000000000000000B";
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "en";
+			knownRegions = ("en", "Base");
+			mainGroup = "000000000000000000000002";
+			productRefGroup = "000000000000000000000004";
+			projectDirPath = "";
+			projectRoot = "";
+			targets = ("000000000000000000000005");
+		};
+		000000000000000000000002 = {
+			isa = "PBXGroup";
+			children = ("000000000000000000000003", "000000000000000000000004");
+			sourceTree = "<group>";
+		};
+		000000000000000000000003 = {
+			isa = "PBXGroup";
+			children = ("000000000000000000000014", "000000000000000000000015", "000000000000000000000016");
+			path = "App";
+			sourceTree = "<group>";
+		};
+		000000000000000000000004 = {
+			isa = "PBXGroup";
+			children = ("000000000000000000000017");
+			name = "Products";
+			sourceTree = "<group>";
+		};
+		000000000000000000000005 = {
+			isa = "PBXNativeTarget";
+			name = "ShunEntertainment";
+			productName = "ShunEntertainment";
+			productReference = "000000000000000000000017";
+			productType = "com.apple.product-type.application";
+			buildConfigurationList = "00000000000000000000000C";
+			buildPhases = ("000000000000000000000006", "000000000000000000000007", "000000000000000000000008");
+			buildRules = ();
+			dependencies = ();
+		};
+		000000000000000000000006 = {
+			isa = "PBXSourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ("000000000000000000000018");
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000007 = {
+			isa = "PBXFrameworksBuildPhase";
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000008 = {
+			isa = "PBXResourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ("000000000000000000000019", "00000000000000000000001A");
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000014 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "App.swift";
+			sourceTree = "<group>";
+		};
+		000000000000000000000015 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "folder";
+			path = "Web";
+			sourceTree = "<group>";
+		};
+		000000000000000000000016 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "folder.assetcatalog";
+			path = "Assets.xcassets";
+			sourceTree = "<group>";
+		};
+		000000000000000000000017 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "wrapper.application";
+			path = "ShunEntertainment.app";
+			sourceTree = "BUILT_PRODUCTS_DIR";
+		};
+		000000000000000000000018 = {
+			isa = "PBXBuildFile";
+			fileRef = "000000000000000000000014";
+		};
+		000000000000000000000019 = {
+			isa = "PBXBuildFile";
+			fileRef = "000000000000000000000015";
+		};
+		00000000000000000000001A = {
+			isa = "PBXBuildFile";
+			fileRef = "000000000000000000000016";
+		};
+		00000000000000000000000B = {
+			isa = "XCConfigurationList";
+			buildConfigurations = ("00000000000000000000000D", "00000000000000000000000E");
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Release";
+		};
+		00000000000000000000000C = {
+			isa = "XCConfigurationList";
+			buildConfigurations = ("00000000000000000000000F", "000000000000000000000010");
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Release";
+		};
+		00000000000000000000000D = {
+			isa = "XCBuildConfiguration";
+			name = "Debug";
+			buildSettings = {
+				SDKROOT = "iphoneos";
+				IPHONEOS_DEPLOYMENT_TARGET = "16.0";
+				SWIFT_VERSION = "5.0";
+				CLANG_ENABLE_MODULES = "YES";
+			};
+		};
+		00000000000000000000000E = {
+			isa = "XCBuildConfiguration";
+			name = "Release";
+			buildSettings = {
+				SDKROOT = "iphoneos";
+				IPHONEOS_DEPLOYMENT_TARGET = "16.0";
+				SWIFT_VERSION = "5.0";
+				CLANG_ENABLE_MODULES = "YES";
+			};
+		};
+		00000000000000000000000F = {
+			isa = "XCBuildConfiguration";
+			name = "Debug";
+			buildSettings = {
+				PRODUCT_NAME = "ShunEntertainment";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
+				GENERATE_INFOPLIST_FILE = "YES";
+				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
+				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";
+				MARKETING_VERSION = "1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = "Automatic";
+			};
+		};
+		000000000000000000000010 = {
+			isa = "XCBuildConfiguration";
+			name = "Release";
+			buildSettings = {
+				PRODUCT_NAME = "ShunEntertainment";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
+				GENERATE_INFOPLIST_FILE = "YES";
+				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
+				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";
+				MARKETING_VERSION = "1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = "Automatic";
+			};
+		};
+	};
+	rootObject = "000000000000000000000001";
+}
+

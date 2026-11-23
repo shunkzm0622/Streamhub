@@ -80,6 +80,7 @@
     <div class="modal-foot"><small>Lưu ý: URL có token riêng tư sẽ được lưu trong bộ nhớ trình duyệt nếu lưu danh sách kênh.</small><button class="btn btn-soft" id="doneModal">Đóng</button></div>
   </div>
 </div>
+<script src="channels.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
 <script>
 (() => {
@@ -397,7 +398,7 @@ function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceho
   if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{showMediaInfo();$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
   const video=$('video');video.hidden=false;
   if(isHLS(c.url)){
-    if(window.Hls&&Hls.isSupported()){
+    if(!video.canPlayType('application/vnd.apple.mpegurl') && window.Hls && Hls.isSupported()){
       hls=new Hls({enableWorker:true,lowLatencyMode:true,backBufferLength:45});const instance=hls;
       instance.on(Hls.Events.MEDIA_ATTACHED,()=>{if(instance===hls)instance.loadSource(c.url);});
       instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(instance!==hls)return;$('playerCaption').textContent='ĐÃ KẾT NỐI';video.play().catch(()=>showToast('Nhấn Play trên video để bắt đầu phát.', 'warn'));});
@@ -444,7 +445,7 @@ async function processFile(file){if(!file)return;try{if(file.size>20*1024*1024)t
 $('dropZone').addEventListener('click',()=>$('fileInput').click());$('fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)processFile(f);e.target.value='';});for(const target of [$('dropZone'),document.body]){target.addEventListener('dragover',e=>{if([...e.dataTransfer?.types||[]].includes('Files')){e.preventDefault();$('dropZone').classList.add('drag');}});target.addEventListener('dragleave',()=>$('dropZone').classList.remove('drag'));target.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length){e.preventDefault();$('dropZone').classList.remove('drag');processFile(e.dataTransfer.files[0]);}});}
 $('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
 $('showDemo').addEventListener('click',()=>{const existing=sources.find(s=>s.origin==='streamhub:demo');if(existing){if(existing.enabled===false){modal(true);showToast('Bật nguồn Demo HLS để phát kênh mẫu.');return;}const item=channels.find(c=>c.sourceId===existing.id);if(item)playChannel(item);return;}const src=addSource('Demo HLS',[channelObj({name:'Big Buck Bunny • Demo HLS',url:DEMO,group:'Demo / Kiểm tra'})],{origin:'streamhub:demo'});const item=channels.find(c=>c.sourceId===src.id);if(item)playChannel(item);});
-$('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='shun-entertainment-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
+$('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));window.webkit.messageHandlers.exportChannels.postMessage(JSON.stringify({channels:data},null,2));});
 // Khởi động với thư viện của trình duyệt. `channels.json` trong GitHub repo là tùy chọn.
 sources=safeGet(STORAGE,[]);if(!Array.isArray(sources))sources=[];
 sources=sources.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.items));
@@ -456,11 +457,9 @@ if(initialUrl&&safeUrl(initialUrl)){
   const c=channels.find(x=>x.sourceId===source.id);if(c)playChannel(c);
 }
 async function loadGithubDefault(){
-  // Chỉ thử ở web thật, không dùng khi mở trực tiếp file:// hoặc about:blank.
-  if(!/^https?:$/.test(location.protocol))return;
-  try{
-    const res=await fetch(new URL('./channels.json',location.href),{cache:'no-store'});
-    if(!res.ok)return;const parsed=parseContent(await res.text(),res.url);if(!parsed.length)return;
+  try {
+    const parsed = parseJSON(window.bundledChannels);
+    if (!parsed.length) return;
     const origin='github:channels.json';const existing=sources.find(s=>s.origin===origin);
     if(existing){existing.items=parsed;existing.name='Danh sách mặc định từ GitHub';rebuild();persist();renderAll();}
     else addSource('Danh sách mặc định từ GitHub',parsed,{origin});
@@ -492,3 +491,4 @@ $('trafficToggle').addEventListener('click', () => {
 <script src="https://cdn.jsdelivr.net/npm/dashjs@4/dist/dash.all.min.js" defer></script>
 </body>
 </html>
+

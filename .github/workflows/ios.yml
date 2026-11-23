@@ -1,0 +1,37 @@
+name: Build Shun Entertainment IPA
+on:
+  push:
+    branches: [ios-ipa]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Release for iPhone and iPad
+        run: |
+          xcodebuild -project ShunEntertainment.xcodeproj -scheme ShunEntertainment \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package and verify unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=build/Build/Products/Release-iphoneos/ShunEntertainment.app
+          test -s "$app/ShunEntertainment"
+          test -s "$app/Web/index.html"
+          test -s "$app/Web/channels.js"
+          xcrun lipo -verify_arch arm64 "$app/ShunEntertainment"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$app/Info.plist")" = iphoneos
+          mkdir -p package/Payload
+          ditto "$app" package/Payload/ShunEntertainment.app
+          (cd package && /usr/bin/zip -qry ../ShunEntertainment-unsigned.ipa Payload)
+          unzip -tq ShunEntertainment-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShunEntertainment-unsigned-IPA
+          path: ShunEntertainment-unsigned.ipa
+          if-no-files-found: error
