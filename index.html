@@ -33,6 +33,7 @@
     <div class="side-label">Thư viện</div>
     <button class="nav-item active" data-filter="all"><span class="nav-name"><span class="glyph">▦</span>Tất cả kênh</span><span class="nav-count" id="allCount">0</span></button>
     <button class="nav-item" data-filter="favorites"><span class="nav-name"><span class="glyph">☆</span>Yêu thích</span><span class="nav-count" id="favCount">0</span></button>
+    <button class="nav-item" data-filter="no-signal"><span class="nav-name"><span class="glyph">⊘</span>No signal</span><span class="nav-count" id="noSignalCount">0</span></button>
     <div class="side-label">Danh mục</div><div class="side-groups" id="sidebarGroups"></div>
     <div class="side-bottom"><div class="side-small">Dùng trực tiếp trên <b>GitHub Pages</b>.<br/>Danh sách đã nhập được lưu cục bộ trên trình duyệt này.<br/><button class="linklike" id="manageSources">Quản lý nguồn phát →</button></div></div>
   </aside>
@@ -135,7 +136,7 @@ function parseContent(text,base){const trimmed=text.replace(/^\uFEFF/,'').trim()
 }
 function addSource(name,items,meta={}){if(!items.length)throw Error('Không tìm thấy kênh có URL HTTP/HTTPS hợp lệ. Kiểm tra cấu trúc playlist/JSON.');
   const source={id:uniqueId(),enabled:true,name:String(name||'Nguồn mới').slice(0,140),created:Date.now(),origin:meta.origin||'',items};sources.push(source);rebuild();persist();renderAll();showToast(`Đã thêm ${items.length.toLocaleString('vi-VN')} kênh từ ${source.name}.`);return source;}
-function rebuild(){channels=[];for(const source of sources.filter(source => source.enabled !== false))for(let i=0;i<source.items.length;i++){const item=source.items[i];if(isHttpLink(item.url))channels.push({...item,sourceId:source.id,sourceName:source.name,key:source.id+':'+i});}}
+function rebuild(){channels=[];for(const source of sources.filter(source => source.enabled !== false))for(let i=0;i<source.items.length;i++){const item=source.items[i];if(isHttpLink(item.url))channels.push({...item,sourceId:source.id,sourceName:source.name,key:source.id+':'+i});}queuePreviews();}
 function groups(){const counts=new Map();channels.forEach(c=>counts.set(c.group,(counts.get(c.group)||0)+1));return [...counts].sort((a,b)=>a[0].localeCompare(b[0],'vi'));}
 function counts(){return{all:channels.length,favorites:channels.filter(c=>favorites.has(c.url)).length};}
 function chooseFilter(newFilter){filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;if(window.innerWidth<790) document.querySelector('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
@@ -144,36 +145,39 @@ function makeSidebarNav(name,n,filterId,icon){const btn=document.createElement('
 function renderNav(){const cnt=counts();$('allCount').textContent=cnt.all;$('favCount').textContent=cnt.favorites;
   document.querySelectorAll('.sidebar>.nav-item').forEach(e=>e.classList.toggle('active',e.dataset.filter===filter));
   const container=$('sidebarGroups');container.replaceChildren();const sel=$('mobileCategory');sel.replaceChildren();
-  function option(value,label){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o);}option('all','Tất cả kênh');option('favorites','☆ Yêu thích');
+  function option(value,label){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o);}option('all','Tất cả kênh');option('favorites','☆ Yêu thích');option('no-signal','No signal');updateSignalCount();
   for(const [name,n] of groups()){const id='group:'+name;container.appendChild(makeSidebarNav(name,n,id,'▤'));option(id,name+' ('+n+')');}
   if(![...sel.options].some(o=>o.value===filter))filter='all';sel.value=filter;
   $('sourceSummary').textContent= sources.length?`${sources.filter(source => source.enabled !== false).length}/${sources.length} nguồn đang bật · ${channels.length.toLocaleString('vi-VN')} kênh`:'Chưa có playlist. Hãy thêm nguồn để bắt đầu.';
 }
-// Only probe visible channels. Release the media connection after capturing a frame.
+// Results last for the lifetime of this page, including changes of filter or source.
+const previews = new Map();
 const previewTiles = new Map();
-const visiblePreviews = new Set();
 const runningPreviews = new Map();
-const previewObserver = new IntersectionObserver(entries => {
-  for (const entry of entries) {
-    const tile = entry.target;
-    if (!previewTiles.has(tile)) continue;
-    if (entry.isIntersecting) visiblePreviews.add(tile);
-    else {
-      visiblePreviews.delete(tile);
-      runningPreviews.get(tile)?.();
-    }
-  }
-  pumpPreviews();
-});
+let previewQueue = [];
 
-function resetPreviews() {
-  previewObserver.disconnect();
-  visiblePreviews.clear();
-  for (const cancel of [...runningPreviews.values()]) cancel();
-  previewTiles.clear();
+function queuePreviews() {
+  const enabled = new Map(channels.map(channel => [channel.url, channel]));
+  previewQueue = [];
+  for (const [url, cancel] of runningPreviews) {
+    if (!enabled.has(url)) cancel();
+  }
+  for (const [url, channel] of enabled) {
+    if (!previews.has(url)) previews.set(url, {channel, status:'pending'});
+    if (previews.get(url).status === 'pending') previewQueue.push(previews.get(url));
+  }
+  previewQueue.reverse();
+  queueMicrotask(pumpPreviews);
 }
 
-function probePreview(tile, state) {
+function updateSignalCount() {
+  const count = channels.filter(channel => previews.get(channel.url)?.status === 'error').length;
+  $('noSignalCount').textContent = count;
+  const option = $('mobileCategory').querySelector('option[value="no-signal"]');
+  if (option) option.textContent = 'No signal (' + count + ')';
+}
+
+function probePreview(state) {
   const channel = state.channel;
   const photo = channel.kind === 'image';
   const media = document.createElement(photo ? 'img' : 'video');
@@ -188,9 +192,14 @@ function probePreview(tile, state) {
     if (!photo) media.pause();
     media.removeAttribute('src');
     if (!photo) media.load();
-    runningPreviews.delete(tile);
-    if (status === 'error') tile.textContent = 'No signal';
-    if (status !== 'cancel') state.next = Date.now() + 60000;
+    runningPreviews.delete(channel.url);
+    state.status = status === 'cancel' ? 'pending' : status;
+    for (const tile of previewTiles.get(channel.url) || []) paintPreview(tile, state);
+    if (status === 'error') {
+      updateSignalCount();
+      if (filter === 'no-signal') renderList();
+    }
+    queueMicrotask(pumpPreviews);
   }
   function capture(frame) {
     const width = frame.videoWidth || frame.naturalWidth;
@@ -202,14 +211,15 @@ function probePreview(tile, state) {
     canvas.setAttribute('aria-label', 'Hình xem trước của ' + channel.name);
     canvas.setAttribute('role', 'img');
     canvas.getContext('2d').drawImage(frame, 0, 0, canvas.width, canvas.height);
-    tile.replaceChildren(canvas);
+    state.frame = canvas;
     finish('ok');
   }
   function ready() {
     if (finished) return;
     try { capture(media); } catch { finish('error'); }
   }
-  runningPreviews.set(tile, () => finish('cancel'));
+  state.status = 'checking';
+  runningPreviews.set(channel.url, () => finish('cancel'));
   timer = setTimeout(() => finish('error'), 12000);
   media.onerror = () => finish('error');
   try {
@@ -244,32 +254,34 @@ function probePreview(tile, state) {
 
 function pumpPreviews() {
   if (document.hidden) return;
-  for (const tile of visiblePreviews) {
-    if (runningPreviews.size >= 3) break;
-    const state = previewTiles.get(tile);
-    if (state && state.next <= Date.now() && !runningPreviews.has(tile)) probePreview(tile, state);
+  while (runningPreviews.size < 3 && previewQueue.length) {
+    const state = previewQueue.pop();
+    if (state.status === 'pending') probePreview(state);
   }
 }
-setInterval(pumpPreviews, 1000);
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    for (const cancel of [...runningPreviews.values()]) cancel();
-  } else pumpPreviews();
-});
+document.addEventListener('visibilitychange', pumpPreviews);
+
+function paintPreview(tile, state) {
+  if (state.frame) {
+    const copy = state.frame.cloneNode();
+    copy.getContext('2d').drawImage(state.frame, 0, 0);
+    tile.replaceChildren(copy);
+  } else tile.textContent = state.status === 'error' ? 'No signal' : 'Chờ kiểm tra…';
+}
 
 function channelThumbnail(channel) {
   const tile = document.createElement('div');
   tile.className = 'channel-preview';
-  tile.textContent = 'Đang tải…';
-  previewTiles.set(tile, {channel, next:0});
-  previewObserver.observe(tile);
+  if (!previewTiles.has(channel.url)) previewTiles.set(channel.url, []);
+  previewTiles.get(channel.url).push(tile);
+  paintPreview(tile, previews.get(channel.url));
   return tile;
 }
-function renderList(){resetPreviews();const q=query.trim().toLocaleLowerCase('vi');let result=channels;
-  if(filter==='favorites')result=result.filter(c=>favorites.has(c.url));else if(filter.startsWith('group:'))result=result.filter(c=>c.group===filter.slice(6));
+function renderList(){previewTiles.clear();const q=query.trim().toLocaleLowerCase('vi');let result=channels;
+  if(filter==='no-signal')result=result.filter(c=>previews.get(c.url)?.status==='error');else if(filter==='favorites')result=result.filter(c=>favorites.has(c.url));else if(filter.startsWith('group:'))result=result.filter(c=>c.group===filter.slice(6));
   if(q)result=result.filter(c=>(c.name+' '+c.group+' '+c.sourceName).toLocaleLowerCase('vi').includes(q));
   $('resultCount').textContent=result.length.toLocaleString('vi-VN');const list=$('channelsList');list.replaceChildren();
-  if(!result.length){const empty=document.createElement('div');empty.className='empty-list';const h=document.createElement('strong');h.textContent=channels.length?'Không tìm thấy kênh phù hợp':'Thư viện còn trống';const p=document.createElement('div');p.textContent=channels.length?'Hãy thử nhóm khác hoặc thay đổi từ khóa tìm kiếm.':'Nhấn “＋ Thêm nguồn” để nhập M3U, JSON hoặc link stream.';if(sources.length && sources.every(source => source.enabled === false)){h.textContent='Tất cả nguồn phát đang tắt';p.textContent='Mở Quản lý nguồn phát để bật lại nguồn bạn muốn xem.';}empty.append(h,p);list.append(empty);return;}
+  if(!result.length){const empty=document.createElement('div');empty.className='empty-list';const h=document.createElement('strong');h.textContent=channels.length?'Không tìm thấy kênh phù hợp':'Thư viện còn trống';const p=document.createElement('div');p.textContent=channels.length?'Hãy thử nhóm khác hoặc thay đổi từ khóa tìm kiếm.':'Nhấn “＋ Thêm nguồn” để nhập M3U, JSON hoặc link stream.';if(filter==='no-signal'){h.textContent='Chưa tìm thấy kênh No signal phù hợp';p.textContent='Các kênh không lấy được hình trong lần kiểm tra đầu sẽ xuất hiện ở đây.';}if(sources.length && sources.every(source => source.enabled === false)){h.textContent='Tất cả nguồn phát đang tắt';p.textContent='Mở Quản lý nguồn phát để bật lại nguồn bạn muốn xem.';}empty.append(h,p);list.append(empty);return;}
   const fragment=document.createDocumentFragment();for(const c of result.slice(0,1200)){const card=document.createElement('div');card.className='channel'+(active?.key===c.key?' selected':'');card.setAttribute('role','button');card.tabIndex=0;card.setAttribute('aria-label','Phát '+c.name);
     const data=document.createElement('div');data.className='channel-data';const title=document.createElement('div');title.className='channel-name';title.textContent=c.name;title.title=c.name;const group=document.createElement('div');group.className='channel-group';group.textContent=c.group+' · '+c.sourceName;data.append(title,group);
     const star=document.createElement('button');star.type='button';star.className='star'+(favorites.has(c.url)?' lit':'');star.textContent=favorites.has(c.url)?'★':'☆';star.title='Thêm / bỏ yêu thích';star.setAttribute('aria-label','Yêu thích '+c.name);star.addEventListener('click',e=>{e.stopPropagation();toggleFavorite(c.url);});card.append(channelThumbnail(c),data,star);card.addEventListener('click',()=>playChannel(c));card.addEventListener('keydown',e=>{if(e.target!==card)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();playChannel(c);}});fragment.append(card);
