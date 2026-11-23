@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0a1020" />
-  <title>StreamHub • IPTV & Camera</title>
+  <title>Shun Entertainment • IPTV & Camera</title>
   <style>
     :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#eaf0ff;background:#090e1b;font-synthesis:none;--surface:#101828;--line:#263449;--muted:#94a4bb;--accent:#6ee6dd;--purple:#9b90ff}
     *{box-sizing:border-box}html,body{min-height:100%;margin:0}body{background:radial-gradient(circle at 88% -15%,#223250 0,#090e1b 44%);font-size:14px}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}a{color:var(--accent)}
@@ -38,14 +38,14 @@
 <div class="app">
   <main class="workspace">
     <header class="topbar">
-      <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">StreamHub<span style="color:#73eee4">.</span></h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
+      <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
       <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
     </header>
     <div class="content">
       <section>
         <div class="section-title"><span class="live-dot"></span> TRÌNH PHÁT</div>
         <article class="player-card">
-          <div class="player-header"><div class="player-headtitle"><div class="player-icon">▷</div><div style="min-width:0"><div class="overline" id="playerCaption">SẴN SÀNG</div><div class="player-name" id="playerName">Chưa chọn kênh</div></div></div><div class="player-tag" id="playerTag">STREAMHUB</div></div>
+          <div class="player-header"><div class="player-headtitle"><div class="player-icon">▷</div><div style="min-width:0"><div class="overline" id="playerCaption">SẴN SÀNG</div><div class="player-name" id="playerName">Chưa chọn kênh</div></div></div><div class="player-tag" id="playerTag">Shun Entertainment</div></div>
           <div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><div class="stage-badge">▷</div><h2>Chọn một kênh để bắt đầu</h2><p>Thêm playlist M3U / JSON hoặc dán link stream. Chọn kênh trong thư viện để phát trực tiếp.</p></div><div class="stage-error" id="stageError" hidden></div></div>
           <div class="player-actions"><button class="btn btn-soft btn-sm" id="retryBtn" disabled>↻ Tải lại</button><button class="btn btn-soft btn-sm" id="favoriteCurrent" disabled>☆ Yêu thích</button><button class="btn btn-soft btn-sm" id="copyCurrent" disabled>▤ Sao chép link</button><span class="spacer"></span><button class="btn btn-soft btn-sm" id="openCurrent" disabled>↗ Mở link</button><button class="btn btn-soft btn-sm" id="fullscreenBtn" disabled>⛶ Toàn màn hình</button></div>
           <div class="play-info"><div class="info-left"><div class="play-group" id="playerGroup">Chưa có nguồn phát</div><div class="play-source" id="playerUrl">Thêm playlist để xem các kênh.</div></div><div style="font-size:11px;color:#8fa2ba;white-space:nowrap" id="playMode">—</div></div>
@@ -381,7 +381,7 @@ function showMediaInfo() {
   }));
 }
 function clearPlayback(){streamCodec='';dashIndex=-1;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
-function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='STREAMHUB';renderPlayerButtons();}
+function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='Shun Entertainment';renderPlayerButtons();}
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 function stageError(message){const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
 function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();const result=v.play();if(result?.catch)result.catch(()=>{if(!v.error)showToast('Nếu trình duyệt chặn tự phát, hãy nhấn nút Play trong video.', 'warn');});}
@@ -439,7 +439,7 @@ async function processFile(file){if(!file)return;try{if(file.size>20*1024*1024)t
 $('dropZone').addEventListener('click',()=>$('fileInput').click());$('fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)processFile(f);e.target.value='';});for(const target of [$('dropZone'),document.body]){target.addEventListener('dragover',e=>{if([...e.dataTransfer?.types||[]].includes('Files')){e.preventDefault();$('dropZone').classList.add('drag');}});target.addEventListener('dragleave',()=>$('dropZone').classList.remove('drag'));target.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length){e.preventDefault();$('dropZone').classList.remove('drag');processFile(e.dataTransfer.files[0]);}});}
 $('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
 $('showDemo').addEventListener('click',()=>{const existing=sources.find(s=>s.origin==='streamhub:demo');if(existing){if(existing.enabled===false){modal(true);showToast('Bật nguồn Demo HLS để phát kênh mẫu.');return;}const item=channels.find(c=>c.sourceId===existing.id);if(item)playChannel(item);return;}const src=addSource('Demo HLS',[channelObj({name:'Big Buck Bunny • Demo HLS',url:DEMO,group:'Demo / Kiểm tra'})],{origin:'streamhub:demo'});const item=channels.find(c=>c.sourceId===src.id);if(item)playChannel(item);});
-$('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='streamhub-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
+$('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='shun-entertainment-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
 // Khởi động với thư viện của trình duyệt. `channels.json` trong GitHub repo là tùy chọn.
 sources=safeGet(STORAGE,[]);if(!Array.isArray(sources))sources=[];
 sources=sources.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.items));
