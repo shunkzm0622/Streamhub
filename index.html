@@ -32,6 +32,7 @@
     .channels-grid{grid-template-columns:minmax(0,1fr);max-height:65vh;overflow-y:auto}
     @media(max-width:840px){.content{grid-template-columns:minmax(0,1fr)}.channels-grid{max-height:55vh}}
       #mediaInfo:not([hidden]){display:flex;flex-wrap:wrap;gap:10px 24px;padding:0 18px 16px;margin:0}#mediaInfo dt{font-size:11px;color:#91a6bf}#mediaInfo dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
+  #publishSession{max-width:min(460px,90vw);color:#edf5ff;background:#10192b;border:1px solid #354966;border-radius:14px;padding:22px}#publishSession::backdrop{background:#08101bc9}.top-actions{flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -39,7 +40,7 @@
   <main class="workspace">
     <header class="topbar">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">StreamHub<span style="color:#73eee4">.</span></h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
-      <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
+      <div class="top-actions"><button class="btn btn-soft" id="saveSession" disabled>Lưu phiên lên GitHub</button><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
     </header>
     <div class="content">
       <section>
@@ -61,6 +62,7 @@
         <div class="footer-note">Hỗ trợ phát <b>HLS (.m3u8)</b>, <b>MP4 / WebM</b>, một số dạng luồng được trình duyệt hỗ trợ và <b>ảnh camera</b>. Nguồn HTTP, CORS, DRM hoặc yêu cầu header đặc biệt có thể không phát được trên GitHub Pages.</div>
       </section>
     </div>
+    <dialog id="publishSession"><h2>Lưu phiên lên GitHub</h2><p>1. Tải tệp phiên hiện tại, giữ tên <b>streamhub-session.json</b>.</p><a id="downloadSession" class="btn btn-primary" download="streamhub-session.json">Tải tệp phiên</a><p>2. Tải tệp lên nhánh <b>main</b> và bấm <b>Commit changes</b>. Danh sách, URL nguồn và cài đặt trong tệp sẽ công khai.</p><a class="btn btn-soft" href="https://github.com/shunkzm0622/Streamhub/upload/main" target="_blank" rel="noopener">Mở GitHub để lưu ↗</a> <button id="closePublish" class="btn btn-soft">Đóng</button></dialog>
   </main>
 </div>
 <div class="toast-area" id="toastArea" role="status" aria-live="polite"></div>
@@ -440,16 +442,6 @@ $('dropZone').addEventListener('click',()=>$('fileInput').click());$('fileInput'
 $('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
 $('showDemo').addEventListener('click',()=>{const existing=sources.find(s=>s.origin==='streamhub:demo');if(existing){if(existing.enabled===false){modal(true);showToast('Bật nguồn Demo HLS để phát kênh mẫu.');return;}const item=channels.find(c=>c.sourceId===existing.id);if(item)playChannel(item);return;}const src=addSource('Demo HLS',[channelObj({name:'Big Buck Bunny • Demo HLS',url:DEMO,group:'Demo / Kiểm tra'})],{origin:'streamhub:demo'});const item=channels.find(c=>c.sourceId===src.id);if(item)playChannel(item);});
 $('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='streamhub-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
-// Khởi động với thư viện của trình duyệt. `channels.json` trong GitHub repo là tùy chọn.
-sources=safeGet(STORAGE,[]);if(!Array.isArray(sources))sources=[];
-sources=sources.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.items));
-const fav=safeGet(FAVORITES,[]);favorites=new Set(Array.isArray(fav)?fav:[]);
-rebuild();renderAll();
-const params=new URLSearchParams(location.search);const initialUrl=params.get('stream');
-if(initialUrl&&safeUrl(initialUrl)){
-  const u=safeUrl(initialUrl);const previous=sources.find(x=>x.origin===u);const source=previous||addSource('Stream từ liên kết',[channelObj({name:lastName(u),url:u,group:'Stream trực tiếp'})],{origin:u});
-  const c=channels.find(x=>x.sourceId===source.id);if(c)playChannel(c);
-}
 async function loadGithubDefault(){
   // Chỉ thử ở web thật, không dùng khi mở trực tiếp file:// hoặc about:blank.
   if(!/^https?:$/.test(location.protocol))return;
@@ -461,7 +453,99 @@ async function loadGithubDefault(){
     else addSource('Danh sách mặc định từ GitHub',parsed,{origin});
   }catch(e){console.info('Không tìm thấy channels.json mặc định hoặc dữ liệu không hợp lệ.',e.message);}
 }
-loadGithubDefault();
+const sessionFilename = 'streamhub-session.json';
+const versionKey = 'streamhub.shared.version';
+function snapshotSession() {
+  const video = $('video'), signal = Object.create(null);
+  for (const source of sources) for (const item of source.items) {
+    const current = previews.get(item.url)?.status;
+    const status = current === 'ok' || current === 'error' ? current : safeGet(statusKey(item.url), null);
+    if (status === 'ok' || status === 'error') signal[item.url] = status;
+  }
+  return {schema:1, revision:uniqueId(), sources, favorites:[...favorites], signal, filter, query,
+    player:{key:active?.key, url:active?.url, volume:video.volume, muted:video.muted, rate:video.playbackRate,
+      position: active?.kind !== 'image' && Number.isFinite(video.duration) ? video.currentTime : null}};
+}
+let downloadUrl;
+$('saveSession').addEventListener('click', () => {
+  if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+  downloadUrl = URL.createObjectURL(new Blob([JSON.stringify(snapshotSession())], {type:'application/json'}));
+  $('downloadSession').href = downloadUrl;
+  $('publishSession').showModal();
+});
+$('closePublish').addEventListener('click', () => $('publishSession').close());
+async function readSharedSession() {
+  if (!/^https?:$/.test(location.protocol)) return null;
+  const response = await fetch('./' + sessionFilename,{cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if (response.status === 404) return null;
+  if (!response.ok) throw Error('HTTP ' + response.status);
+  const session = await response.json();
+  if (session.schema !== 1 || typeof session.revision !== 'string' || !Array.isArray(session.sources) ||
+      !session.sources.every(source => source && typeof source.id === 'string' && Array.isArray(source.items) &&
+        source.items.every(item => item && isHttpLink(item.url) && typeof item.name === 'string' && typeof item.group === 'string')) ||
+      !Array.isArray(session.favorites)) throw Error('Dữ liệu phiên không hợp lệ');
+  return session;
+}
+async function startSession() {
+  const app = document.querySelector('.app');
+  app.inert = true;
+  try {
+    sources=safeGet(STORAGE,[]);if(!Array.isArray(sources))sources=[];
+sources=sources.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.items));
+const fav=safeGet(FAVORITES,[]);favorites=new Set(Array.isArray(fav)?fav:[]);
+
+    let session;
+    try { session = await readSharedSession(); }
+    catch { showToast('Chưa đọc được phiên GitHub. Đang dùng thư viện của trình duyệt.', 'warn'); }
+    if (session) {
+      if (safeGet(versionKey,null) !== session.revision || safeGet(STORAGE,null) === null) {
+        sources = session.sources;
+        favorites = new Set(session.favorites);
+        for (const source of sources) for (const item of source.items) {
+          const status = session.signal?.[item.url];
+          if (status === 'ok' || status === 'error') previews.set(item.url,{channel:item,status});
+        }
+        persist();
+        try {
+          for (const source of sources) for (const item of source.items) {
+            const status = session.signal?.[item.url];
+            if (status === 'ok' || status === 'error') localStorage.setItem(statusKey(item.url),JSON.stringify(status));
+            else localStorage.removeItem(statusKey(item.url));
+          }
+          localStorage.setItem(versionKey,JSON.stringify(session.revision));
+        } catch { showToast('Trình duyệt chưa lưu được toàn bộ phiên.', 'warn'); }
+      }
+      filter = typeof session.filter === 'string' ? session.filter : 'all';
+      query = typeof session.query === 'string' ? session.query : '';
+      $('searchInput').value = query;
+    }
+    rebuild();renderAll();
+    if (!session) loadGithubDefault();
+    const settings = session?.player;
+    const video = $('video');
+    if (settings) {
+      if (Number.isFinite(settings.volume)) video.volume = Math.min(1,Math.max(0,settings.volume));
+      video.muted = settings.muted === true;
+      if (settings.rate >= 0.25 && settings.rate <= 4) video.playbackRate = settings.rate;
+    }
+    const params=new URLSearchParams(location.search);const initialUrl=params.get('stream');
+if(initialUrl&&safeUrl(initialUrl)){
+  const u=safeUrl(initialUrl);const previous=sources.find(x=>x.origin===u);const source=previous||addSource('Stream từ liên kết',[channelObj({name:lastName(u),url:u,group:'Stream trực tiếp'})],{origin:u});
+  const c=channels.find(x=>x.sourceId===source.id);if(c)playChannel(c);
+} else if (settings?.url) {
+      const selected = channels.find(c => c.key === settings.key && c.url === settings.url) || channels.find(c => c.url === settings.url);
+      if (selected) {
+        playChannel(selected);
+        if (Number.isFinite(settings.position) && settings.position > 0 && selected.kind !== 'image') {
+          video.addEventListener('loadedmetadata', () => {
+            if (active?.key === selected.key && Number.isFinite(video.duration)) video.currentTime = Math.min(settings.position,video.duration);
+          },{once:true});
+        }
+      }
+    }
+  } finally { app.inert = false; $('saveSession').disabled = false; }
+}
+startSession();
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dashjs@4/dist/dash.all.min.js" defer></script>
