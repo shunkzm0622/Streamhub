@@ -31,6 +31,7 @@
     .mobile-category{display:block;width:100%;max-width:none;margin-bottom:8px}
     .channels-grid{grid-template-columns:minmax(0,1fr);max-height:65vh;overflow-y:auto}
     @media(max-width:840px){.content{grid-template-columns:minmax(0,1fr)}.channels-grid{max-height:55vh}}
+      #mediaInfo:not([hidden]){display:flex;flex-wrap:wrap;gap:10px 24px;padding:0 18px 16px;margin:0}#mediaInfo dt{font-size:11px;color:#91a6bf}#mediaInfo dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
   </style>
 </head>
 <body>
@@ -48,6 +49,7 @@
           <div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><div class="stage-badge">▷</div><h2>Chọn một kênh để bắt đầu</h2><p>Thêm playlist M3U / JSON hoặc dán link stream. Chọn kênh trong thư viện để phát trực tiếp.</p></div><div class="stage-error" id="stageError" hidden></div></div>
           <div class="player-actions"><button class="btn btn-soft btn-sm" id="retryBtn" disabled>↻ Tải lại</button><button class="btn btn-soft btn-sm" id="favoriteCurrent" disabled>☆ Yêu thích</button><button class="btn btn-soft btn-sm" id="copyCurrent" disabled>▤ Sao chép link</button><span class="spacer"></span><button class="btn btn-soft btn-sm" id="openCurrent" disabled>↗ Mở link</button><button class="btn btn-soft btn-sm" id="fullscreenBtn" disabled>⛶ Toàn màn hình</button></div>
           <div class="play-info"><div class="info-left"><div class="play-group" id="playerGroup">Chưa có nguồn phát</div><div class="play-source" id="playerUrl">Thêm playlist để xem các kênh.</div></div><div style="font-size:11px;color:#8fa2ba;white-space:nowrap" id="playMode">—</div></div>
+          <dl id="mediaInfo" aria-label="Thông tin kỹ thuật" hidden></dl>
         </article>
       </section>
       <section class="panel">
@@ -345,16 +347,49 @@ function renderSources(){const root=$('sourceList');root.replaceChildren();if(!s
 }
 function renderAll(){renderNav();renderList();renderSources();renderPlayerButtons();}
 function toggleFavorite(url){if(favorites.has(url))favorites.delete(url);else favorites.add(url);persist();renderNav();renderList();renderPlayerButtons();}
-function clearPlayback(){if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
-function stopPlayer(){clearPlayback();active=null;$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='STREAMHUB';renderPlayerButtons();}
+let streamCodec = '', dashIndex = -1;
+function formatCodec(raw) {
+  if (!raw) return 'Chưa xác định';
+  const id = raw.match(/codecs=["']?([^"';]+)/i)?.[1] || raw;
+  const name = {avc1:'H.264',avc3:'H.264',hvc1:'H.265',hev1:'H.265',av01:'AV1',vp09:'VP9'}[id.split('.')[0].toLowerCase()];
+  return name ? name + ' (' + id + ')' : id;
+}
+function showMediaInfo() {
+  const panel = $('mediaInfo');
+  panel.hidden = !active;
+  if (!active) return;
+  const photo = active.kind === 'image';
+  const media = photo ? $('snapshot') : $('video');
+  const url = active.url;
+  const ext = url.split(/[?#]/)[0].match(/\.(mp4|webm|mov|ts|m4v|jpeg|jpg|png|webp|gif)$/i);
+  const format = isHLS(url) ? 'HLS' : isDASH(url) ? 'MPEG-DASH' : ext?.[1].toUpperCase() || (photo ? 'Ảnh camera' : 'Chưa xác định');
+  let level = hls?.levels?.[hls.currentLevel], codec = level?.videoCodec || streamCodec;
+  if (dash && dashIndex >= 0) {
+    level = dash.getBitrateInfoListFor('video').find(item => item.qualityIndex === dashIndex);
+    codec = dash.getCurrentTrackFor('video')?.codec;
+  }
+  const width = photo ? media.naturalWidth : media.videoWidth || level?.width;
+  const height = photo ? media.naturalHeight : media.videoHeight || level?.height;
+  const fields = [['Định dạng',format]];
+  if (!photo) fields.push(['Codec video',formatCodec(codec)]);
+  fields.push(['Độ phân giải',width && height ? width + ' × ' + height : 'Chưa xác định']);
+  if (Number(level?.frameRate) > 0) fields.push(['Tốc độ khung hình',level.frameRate + ' fps']);
+  if (level?.bitrate > 0) fields.push(['Bitrate công bố',(level.bitrate/1e6).toLocaleString('vi-VN',{maximumFractionDigits:2}) + ' Mbps']);
+  panel.replaceChildren(...fields.map(([label,value]) => {
+    const item = document.createElement('div'), term = document.createElement('dt'), detail = document.createElement('dd');
+    term.textContent = label; detail.textContent = value; item.append(term,detail); return item;
+  }));
+}
+function clearPlayback(){streamCodec='';dashIndex=-1;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
+function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='STREAMHUB';renderPlayerButtons();}
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 function stageError(message){const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
 function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();const result=v.play();if(result?.catch)result.catch(()=>{if(!v.error)showToast('Nếu trình duyệt chặn tự phát, hãy nhấn nút Play trong video.', 'warn');});}
 function isHLS(url){return hlsLike(url)||/\b(?:format|type)=m3u8\b/i.test(url);}
 function isDASH(url){return /\.mpd(?:[?#]|$)/i.test(url);}
-function playChannel(c){clearPlayback();active=c;$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
+function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
   if(location.protocol==='https:'&&c.url.startsWith('http:'))showToast('Nguồn HTTP trên trang HTTPS có thể bị trình duyệt chặn (mixed content). Hãy dùng link HTTPS.', 'warn');
-  if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
+  if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{showMediaInfo();$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
   const video=$('video');video.hidden=false;
   if(isHLS(c.url)){
     if(window.Hls&&Hls.isSupported()){
@@ -362,12 +397,27 @@ function playChannel(c){clearPlayback();active=c;$('stagePlaceholder').hidden=tr
       instance.on(Hls.Events.MEDIA_ATTACHED,()=>{if(instance===hls)instance.loadSource(c.url);});
       instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(instance!==hls)return;$('playerCaption').textContent='ĐÃ KẾT NỐI';video.play().catch(()=>showToast('Nhấn Play trên video để bắt đầu phát.', 'warn'));});
       instance.on(Hls.Events.ERROR,(_evt,data)=>{if(instance!==hls||!data.fatal)return;const reason=data?.details||data?.type||'Lỗi nguồn';let msg='Không tải được stream HLS ('+reason+'). Kiểm tra link còn hoạt động và máy chủ cho phép CORS đối với manifest, phân đoạn và khóa mã hóa.';if(data.type===Hls.ErrorTypes.MEDIA_ERROR){msg='Luồng có thể sử dụng codec không được trình duyệt hỗ trợ ('+reason+').';}stageError(msg);});
+      instance.on(Hls.Events.BUFFER_CODECS, (_, tracks) => {
+        if (instance !== hls) return;
+        streamCodec = tracks.video?.codec || ''; showMediaInfo();
+      });
+      instance.on(Hls.Events.LEVEL_SWITCHED, () => { if (instance === hls) showMediaInfo(); });
       instance.attachMedia(video);
     }else if(video.canPlayType('application/vnd.apple.mpegurl')){playNative(c.url);}else{stageError('Trình duyệt hiện tại không hỗ trợ phát HLS. Hãy thử Edge, Chrome hoặc Safari mới.');}
   }else if(isDASH(c.url)){
-    if(window.dashjs){dash=dashjs.MediaPlayer().create();dash.initialize(video,c.url,true);$('playerCaption').textContent='ĐANG KẾT NỐI DASH';}else stageError('Chưa tải được thư viện DASH. Kiểm tra kết nối mạng với CDN.');
+    if(window.dashjs){dash=dashjs.MediaPlayer().create();const instance=dash;
+      instance.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+        if (instance !== dash) return;
+        dashIndex = dash.getQualityFor('video'); showMediaInfo();
+      });
+      instance.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, event => {
+        if (instance !== dash || event.mediaType !== 'video') return;
+        dashIndex = event.newQuality; showMediaInfo();
+      });
+      dash.initialize(video,c.url,true);$('playerCaption').textContent='ĐANG KẾT NỐI DASH';}else stageError('Chưa tải được thư viện DASH. Kiểm tra kết nối mạng với CDN.');
   }else {playNative(c.url);}
 }
+for (const event of ['loadedmetadata','resize','playing']) $('video').addEventListener(event,showMediaInfo);
 $('video').addEventListener('playing',()=>{$('stageError').hidden=true;$('playerCaption').textContent='ĐANG PHÁT';});
 $('video').addEventListener('error',()=>{if(!active||$('video').hidden)return;const message=['','Tải video bị hủy.','Không tải được dữ liệu. Kiểm tra link stream, CORS và kết nối mạng.','Không giải mã được stream.','Định dạng/codec không được trình duyệt hỗ trợ.'][$('video').error?.code||0]||'Lỗi phát video.';stageError(message);});
 $('retryBtn').addEventListener('click',()=>{if(active)playChannel(active);});$('favoriteCurrent').addEventListener('click',()=>{if(active)toggleFavorite(active.url);});
