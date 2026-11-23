@@ -62,7 +62,7 @@
         <div class="footer-note">Hỗ trợ phát <b>HLS (.m3u8)</b>, <b>MP4 / WebM</b>, một số dạng luồng được trình duyệt hỗ trợ và <b>ảnh camera</b>. Nguồn HTTP, CORS, DRM hoặc yêu cầu header đặc biệt có thể không phát được trên GitHub Pages.</div>
       </section>
     </div>
-    <dialog id="publishSession"><h2>Lưu phiên lên GitHub</h2><p>1. Tải tệp phiên hiện tại, giữ tên <b>streamhub-session.json</b>.</p><a id="downloadSession" class="btn btn-primary" download="streamhub-session.json">Tải tệp phiên</a><p>2. Tải tệp lên nhánh <b>main</b> và bấm <b>Commit changes</b>. Danh sách, URL nguồn và cài đặt trong tệp sẽ công khai.</p><a class="btn btn-soft" href="https://github.com/shunkzm0622/Streamhub/upload/main" target="_blank" rel="noopener">Mở GitHub để lưu ↗</a> <button id="closePublish" class="btn btn-soft">Đóng</button></dialog>
+    <dialog id="publishSession"><h2>Tự lưu lên GitHub</h2><p>Tạo <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> cho riêng repo Streamhub, cấp quyền Contents → Read and write.</p><label for="syncToken">GitHub token</label><input id="syncToken" type="password" class="field-input" autocomplete="off"><p>Token chỉ dùng trong tab này. Bản lưu phiên sẽ công khai.</p><button id="connectSync" class="btn btn-primary">Bật tự lưu</button> <button id="closePublish" class="btn btn-soft">Đóng</button><p id="syncMessage" role="status"></p></dialog>
   </main>
 </div>
 <div class="toast-area" id="toastArea" role="status" aria-live="polite"></div>
@@ -90,7 +90,7 @@ const groupKeys = ['group-title','group','group_name','groupName','category','ca
 let sources = [], favorites = new Set(), channels = [], active = null, filter = 'all', query = '', hls = null, photoTimer = null, dash = null;
 
 function safeGet(k, fallback) { try { const v = localStorage.getItem(k); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } }
-function persist() { try { localStorage.setItem(STORAGE, JSON.stringify(sources)); localStorage.setItem(FAVORITES, JSON.stringify([...favorites])); } catch { showToast('Không thể lưu hết dữ liệu (trình duyệt có thể đã đầy bộ nhớ). Danh sách hiện tại vẫn sử dụng được.', 'warn'); } }
+function persist() { scheduleSync(); try { localStorage.setItem(STORAGE, JSON.stringify(sources)); localStorage.setItem(FAVORITES, JSON.stringify([...favorites])); } catch { showToast('Không thể lưu hết dữ liệu (trình duyệt có thể đã đầy bộ nhớ). Danh sách hiện tại vẫn sử dụng được.', 'warn'); } }
 function showToast(message, kind='ok') { const div = document.createElement('div'); div.className = 'toast'+(kind==='ok'?'':' '+kind); div.textContent = message; $('toastArea').appendChild(div); setTimeout(()=>div.remove(), 5400); }
 function isHttpLink(v){return /^https?:\/\//i.test(String(v||'').trim());}
 function safeUrl(value, base) { if(typeof value!=='string') return ''; let v=value.trim(); if(!v) return ''; try{const out=new URL(v,base||window.location.href);return /^https?:$/.test(out.protocol)?out.href:'';}catch{return '';} }
@@ -144,7 +144,7 @@ function addSource(name,items,meta={}){if(!items.length)throw Error('Không tìm
 function rebuild(){channels=[];for(const source of sources.filter(source => source.enabled !== false))for(let i=0;i<source.items.length;i++){const item=source.items[i];if(isHttpLink(item.url))channels.push({...item,sourceId:source.id,sourceName:source.name,key:source.id+':'+i});}queuePreviews();}
 function groups(){const counts=new Map();channels.forEach(c=>counts.set(c.group,(counts.get(c.group)||0)+1));return [...counts].sort((a,b)=>a[0].localeCompare(b[0],'vi'));}
 function counts(){return{all:channels.length,favorites:channels.filter(c=>favorites.has(c.url)).length};}
-function chooseFilter(newFilter){filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;if(window.innerWidth<790) document.querySelector('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
+function chooseFilter(newFilter){scheduleSync();filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;if(window.innerWidth<790) document.querySelector('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
 function renderNav(){const cnt=counts();const sel=$('mobileCategory');sel.replaceChildren();
   const library = document.createElement('optgroup'); library.label = 'Thư viện';
   const categories = document.createElement('optgroup'); categories.label = 'Danh mục kênh'; sel.append(library,categories);
@@ -223,7 +223,7 @@ function probePreview(state) {
     state.status = status === 'cancel' ? 'pending' : status;
     for (const tile of previewTiles.get(channel.url) || []) paintPreview(tile, state);
     retrying.delete(channel.url);
-    if (status !== 'cancel') {
+    if (status !== 'cancel') { scheduleSync();
       try { localStorage.setItem(statusKey(channel.url), JSON.stringify(status)); }
       catch { if (!storageWarningShown) { storageWarningShown = true; showToast('Trình duyệt không lưu được kết quả kiểm tra kênh.', 'warn'); } }
       updateSignalCount();
@@ -383,13 +383,13 @@ function showMediaInfo() {
   }));
 }
 function clearPlayback(){streamCodec='';dashIndex=-1;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
-function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='STREAMHUB';renderPlayerButtons();}
+function stopPlayer(){clearPlayback();active=null;scheduleSync();showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='STREAMHUB';renderPlayerButtons();}
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 function stageError(message){const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
 function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();const result=v.play();if(result?.catch)result.catch(()=>{if(!v.error)showToast('Nếu trình duyệt chặn tự phát, hãy nhấn nút Play trong video.', 'warn');});}
 function isHLS(url){return hlsLike(url)||/\b(?:format|type)=m3u8\b/i.test(url);}
 function isDASH(url){return /\.mpd(?:[?#]|$)/i.test(url);}
-function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
+function playChannel(c){clearPlayback();active=c;scheduleSync();showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
   if(location.protocol==='https:'&&c.url.startsWith('http:'))showToast('Nguồn HTTP trên trang HTTPS có thể bị trình duyệt chặn (mixed content). Hãy dùng link HTTPS.', 'warn');
   if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{showMediaInfo();$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
   const video=$('video');video.hidden=false;
@@ -439,7 +439,7 @@ $('importUrlBtn').addEventListener('click',()=>busy($('importUrlBtn'),(async()=>
 $('importPasteBtn').addEventListener('click',()=>{try{const text=$('pasteContent').value;if(!text.trim())throw Error('Chưa có nội dung để nhập.');const items=parseContent(text);addSource($('pasteLabel').value||'Danh sách dán',items);$('pasteContent').value='';modal(false);}catch(e){showToast(e.message,'err');}});
 async function processFile(file){if(!file)return;try{if(file.size>20*1024*1024)throw Error('File quá lớn (>20 MB). Hãy chia playlist thành nhiều phần nhỏ hơn.');const text=await file.text();const items=parseContent(text);addSource(file.name,items);modal(false);}catch(e){showToast(e.message,'err');}}
 $('dropZone').addEventListener('click',()=>$('fileInput').click());$('fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)processFile(f);e.target.value='';});for(const target of [$('dropZone'),document.body]){target.addEventListener('dragover',e=>{if([...e.dataTransfer?.types||[]].includes('Files')){e.preventDefault();$('dropZone').classList.add('drag');}});target.addEventListener('dragleave',()=>$('dropZone').classList.remove('drag'));target.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length){e.preventDefault();$('dropZone').classList.remove('drag');processFile(e.dataTransfer.files[0]);}});}
-$('searchInput').addEventListener('input',e=>{query=e.target.value;renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
+$('searchInput').addEventListener('input',e=>{query=e.target.value;scheduleSync();renderList();});$('mobileCategory').addEventListener('change',e=>chooseFilter(e.target.value));
 $('showDemo').addEventListener('click',()=>{const existing=sources.find(s=>s.origin==='streamhub:demo');if(existing){if(existing.enabled===false){modal(true);showToast('Bật nguồn Demo HLS để phát kênh mẫu.');return;}const item=channels.find(c=>c.sourceId===existing.id);if(item)playChannel(item);return;}const src=addSource('Demo HLS',[channelObj({name:'Big Buck Bunny • Demo HLS',url:DEMO,group:'Demo / Kiểm tra'})],{origin:'streamhub:demo'});const item=channels.find(c=>c.sourceId===src.id);if(item)playChannel(item);});
 $('exportBtn').addEventListener('click',()=>{if(!channels.length){showToast('Chưa có kênh nào để xuất.','warn');return;}const data=channels.map(({name,url,group,logo,kind})=>({name,url,group,logo,kind}));const object=new Blob([JSON.stringify({channels:data},null,2)],{type:'application/json'});const url=URL.createObjectURL(object);const a=document.createElement('a');a.href=url;a.download='streamhub-channels.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);showToast('Đã xuất danh sách kênh thành JSON.');});
 async function loadGithubDefault(){
@@ -466,14 +466,71 @@ function snapshotSession() {
     player:{key:active?.key, url:active?.url, volume:video.volume, muted:video.muted, rate:video.playbackRate,
       position: active?.kind !== 'image' && Number.isFinite(video.duration) ? video.currentTime : null}};
 }
-let downloadUrl;
+const syncEndpoint = 'https://api.github.com/repos/shunkzm0622/Streamhub/contents/' + sessionFilename;
+let syncToken = '', syncSha = '', syncTimer, saving = false, dirty = false, lastSaved = '';
+function syncStatus(label, detail) {
+  $('saveSession').textContent = label;
+  $('syncMessage').textContent = detail || '';
+}
+function scheduleSync() {
+  if (!syncToken) return;
+  dirty = true;
+  if (!syncTimer && !saving) syncTimer = setTimeout(() => {syncTimer = null; flushSync();}, 3500);
+}
+function encodeSnapshot(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (let i=0;i<bytes.length;i+=8192) binary += String.fromCharCode(...bytes.subarray(i,i+8192));
+  return btoa(binary);
+}
+async function flushSync() {
+  if (!syncToken || saving || !dirty) return;
+  saving = true; dirty = false;
+  try {
+    const snapshot = snapshotSession();
+    const signature = JSON.stringify({...snapshot,revision:''});
+    if (signature === lastSaved) return;
+    syncStatus('Đang lưu…');
+    const body = {message:'Lưu phiên StreamHub',branch:'main',content:encodeSnapshot(JSON.stringify(snapshot))};
+    if (syncSha) body.sha = syncSha;
+    const response = await fetch(syncEndpoint,{method:'PUT',headers:{Authorization:'Bearer '+syncToken,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (!response.ok) throw Error(response.status===409 || response.status===422 ? 'Phiên trên GitHub có thể đã thay đổi. Mở lại trang để đồng bộ.' : 'GitHub trả về HTTP '+response.status);
+    syncSha = (await response.json()).content.sha;
+    lastSaved = signature;
+    try {localStorage.setItem(versionKey,JSON.stringify(snapshot.revision));} catch {}
+    syncStatus('Đã tự lưu ✓');
+  } catch (error) {
+    syncToken = ''; syncStatus('Tự lưu đã dừng',error.message);
+    showToast('Chưa lưu được phiên: '+error.message,'warn');
+  } finally { saving = false; if (dirty) scheduleSync(); }
+}
 $('saveSession').addEventListener('click', () => {
-  if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-  downloadUrl = URL.createObjectURL(new Blob([JSON.stringify(snapshotSession())], {type:'application/json'}));
-  $('downloadSession').href = downloadUrl;
+  $('connectSync').textContent = syncToken ? 'Tắt tự lưu' : 'Bật tự lưu';
+  $('syncToken').hidden = Boolean(syncToken);
   $('publishSession').showModal();
 });
+$('connectSync').addEventListener('click', async () => {
+  if (saving) return;
+  if (syncToken) {
+    clearTimeout(syncTimer); syncTimer = null; syncToken = ''; dirty = false;
+    syncStatus('Lưu phiên lên GitHub'); $('publishSession').close(); return;
+  }
+  const token = $('syncToken').value.trim();
+  if (!token) { $('syncToken').focus(); return; }
+  $('syncToken').value = ''; $('connectSync').disabled = true;
+  try {
+    const response = await fetch(syncEndpoint+'?ref=main',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+    if (response.status!==404 && !response.ok) throw Error('GitHub trả về HTTP '+response.status);
+    syncSha = response.ok ? (await response.json()).sha : '';
+    lastSaved = ''; syncToken = token; dirty = true;
+    await flushSync();
+    if (syncToken) $('publishSession').close();
+  } catch (error) { syncStatus('Chưa kết nối GitHub',error.message); }
+  finally { $('connectSync').disabled = false; }
+});
 $('closePublish').addEventListener('click', () => $('publishSession').close());
+for (const event of ['volumechange','ratechange','seeked','pause']) $('video').addEventListener(event,scheduleSync);
+document.addEventListener('visibilitychange', () => {if (document.hidden && syncToken) {dirty=true;flushSync();}});
 async function readSharedSession() {
   if (!/^https?:$/.test(location.protocol)) return null;
   const response = await fetch('./' + sessionFilename,{cache:'no-store',signal:AbortSignal.timeout(8000)});
