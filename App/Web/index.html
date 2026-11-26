@@ -264,6 +264,7 @@ function probePreview(state) {
     } else if (isDASH(channel.url) && prepareDash(media)) {
       dashPreview = dashjs.MediaPlayer().create();
       dashPreview.on(dashjs.MediaPlayer.events.ERROR, () => finish('error'));
+      dashPreview.updateSettings({streaming:{capabilities:{useMediaCapabilitiesApi:false}}});
       dashPreview.initialize(media, channel.url, true);
     } else media.src = channel.url;
     media.play().catch(() => {});
@@ -378,6 +379,7 @@ function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();co
 function isHLS(url){return hlsLike(url)||/\b(?:format|type)=m3u8\b/i.test(url);}
 function prepareDash(media) {
   if (!window.dashjs || !(window.ManagedMediaSource || window.MediaSource || window.WebKitMediaSource)) return false;
+  media.preload = 'auto';
   media.disableRemotePlayback = true;
   media.setAttribute('disableremoteplayback', '');
   return true;
@@ -386,7 +388,15 @@ function isDASH(url){return /\.mpd(?:[?#]|$)/i.test(url);}
 function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
   if(location.protocol==='https:'&&c.url.startsWith('http:'))showToast('Nguồn HTTP trên trang HTTPS có thể bị trình duyệt chặn (mixed content). Hãy dùng link HTTPS.', 'warn');
   if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{showMediaInfo();$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
-  const video=$('video');video.hidden=false;
+  let video = $('video');
+  if (isDASH(c.url)) {
+    const fresh = document.createElement('video');
+    fresh.id = 'video'; fresh.controls = true; fresh.playsInline = true;
+    fresh.preload = 'auto';
+    video.replaceWith(fresh); video = fresh;
+    bindPlayerEvents(video);
+  }
+  video.hidden=false;
   if(isHLS(c.url)){
     if(!video.canPlayType('application/vnd.apple.mpegurl') && window.Hls && Hls.isSupported()){
       hls=new Hls({enableWorker:true,lowLatencyMode:true,backBufferLength:45});const instance=hls;
@@ -406,7 +416,13 @@ function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceho
       return;
     }
     const instance = dash = dashjs.MediaPlayer().create();
+    instance.updateSettings({streaming:{capabilities:{useMediaCapabilitiesApi:false}}});
+    let phase = 'mở trình phát';
     const events = dashjs.MediaPlayer.events;
+    instance.on(events.MANIFEST_LOADED, event => { if (!event.error) phase = 'đã đọc MPD'; });
+    instance.on(events.FRAGMENT_LOADING_COMPLETED, event => {
+      if (event.request && !event.error) phase = 'đã tải ' + (event.request.mediaType || '') + ' ' + (event.request.type || 'segment');
+    });
     function refreshRepresentation() {
       if (instance !== dash) return;
       dashRepresentation = instance.getCurrentRepresentationForType('video');
@@ -419,15 +435,19 @@ function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceho
       const detail = String(event.error?.message || 'Không đọc được nguồn MPD');
       stageError(/license|key system|drm|encrypted/i.test(detail)
         ? 'Nguồn DASH yêu cầu DRM. Cần giấy phép phát tương thích từ nhà cung cấp.'
-        : 'Lỗi MPEG-DASH: ' + detail);
+        : 'MPEG-DASH (' + phase + ', mã ' + (event.error?.code ?? '?') + '): ' + detail + (video.error?.message ? ' · ' + video.error.message : ''));
     });
     $('playerCaption').textContent='ĐANG KẾT NỐI DASH';
     instance.initialize(video,c.url,true);
   }else {playNative(c.url);}
 }
-for (const event of ['loadedmetadata','resize','playing']) $('video').addEventListener(event,showMediaInfo);
-$('video').addEventListener('playing',()=>{$('stageError').hidden=true;$('playerCaption').textContent='ĐANG PHÁT';});
-$('video').addEventListener('error',()=>{if(!active||$('video').hidden)return;const message=['','Tải video bị hủy.','Không tải được dữ liệu. Kiểm tra link stream, CORS và kết nối mạng.','Không giải mã được stream.','Định dạng/codec không được trình duyệt hỗ trợ.'][$('video').error?.code||0]||'Lỗi phát video.';stageError(message);});
+function bindPlayerEvents(media) {
+  for (const event of ['loadedmetadata','resize','playing']) media.addEventListener(event,showMediaInfo);
+media.addEventListener('playing',()=>{$('stageError').hidden=true;$('playerCaption').textContent='ĐANG PHÁT';});
+media.addEventListener('error',()=>{if(!active || media !== $('video') || media.hidden || dash)return;const message=['','Tải video bị hủy.','Không tải được dữ liệu. Kiểm tra link stream, CORS và kết nối mạng.','Không giải mã được stream.','Định dạng/codec không được trình duyệt hỗ trợ.'][$('video').error?.code||0]||'Lỗi phát video.';stageError(message);});
+  for (const event of ['loadeddata','playing','emptied','error','webkitpresentationmodechanged']) media.addEventListener(event,updatePiP);
+}
+bindPlayerEvents($('video'));
 $('retryBtn').addEventListener('click',()=>{if(active)playChannel(active);});$('favoriteCurrent').addEventListener('click',()=>{if(active)toggleFavorite(active.url);});
 $('copyCurrent').addEventListener('click',async()=>{if(!active)return;try{await navigator.clipboard.writeText(active.url);showToast('Đã sao chép link stream.');}catch{showToast('Trình duyệt không cho phép sao chép tự động. Link đang hiển thị bên dưới trình phát.', 'warn');}});
 $('openCurrent').addEventListener('click',()=>{if(active)window.open(active.url,'_blank','noopener,noreferrer');});
@@ -469,18 +489,20 @@ async function loadGithubDefault(){
 }
 loadGithubDefault();
 $('checkUpdate').onclick = () => window.webkit.messageHandlers.checkUpdate.postMessage('check');
-const options = $('options'), videoElement = $('video');
+const options = $('options');
 $('openOptions').onclick = () => options.showModal();
 $('closeOptions').onclick = () => options.close();
 $('backIPTV').onclick = () => $('trafficToggle').click();
 for (const id of ['openImport','manageSources','trafficToggle','showDemo']) $(id).addEventListener('click', () => options.close());
 function updatePiP() {
+  const videoElement = $('video');
   const supported = videoElement.webkitSupportsPresentationMode?.('picture-in-picture') ||
     (document.pictureInPictureEnabled && typeof videoElement.requestPictureInPicture === 'function');
   $('pip').disabled = !supported || videoElement.hidden || videoElement.readyState < 2;
 }
-for (const event of ['loadeddata','playing','emptied','error','webkitpresentationmodechanged']) videoElement.addEventListener(event,updatePiP);
+
 $('pip').onclick = async () => {
+  const videoElement = $('video');
   try {
     if (videoElement.webkitSupportsPresentationMode?.('picture-in-picture')) {
       videoElement.webkitSetPresentationMode(videoElement.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture');
