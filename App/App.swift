@@ -119,9 +119,25 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
     }
 
     private var updating = false
-    private struct Runs: Decodable {
-        struct Run: Decodable { let run_number: Int }
-        let workflow_runs: [Run]
+    private struct Release: Decodable {
+        struct Asset: Decodable { let name: String }
+        let tag_name: String
+        let draft: Bool
+        let prerelease: Bool
+        let assets: [Asset]
+        var build: Int? {
+            let prefix = "ios-build-"
+            guard !draft, !prerelease, tag_name.hasPrefix(prefix),
+                  assets.contains(where: { $0.name == "web-update.json" }),
+                  assets.contains(where: { $0.name == "ShunEntertainment-unsigned.ipa" }) else { return nil }
+            return Int(tag_name.dropFirst(prefix.count))
+        }
+    }
+    private func requireOK(_ response: URLResponse, step: String) throws {
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard code == 200 else {
+            throw NSError(domain: "ShunUpdate", code: code, userInfo: [NSLocalizedDescriptionKey: "\\(step): HTTP \\(code)"])
+        }
     }
 
     @MainActor
@@ -135,15 +151,17 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
         }
         do {
             status("Đang kiểm tra GitHub…")
-            let endpoint = URL(string: "https://api.github.com/repos/shunkzm0622/Streamhub/actions/workflows/ios.yml/runs?branch=ios-ipa&status=success&per_page=1")!
+            let endpoint = URL(string: "https://api.github.com/repos/shunkzm0622/Streamhub/releases?per_page=100")!
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20))
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                  let latest = try JSONDecoder().decode(Runs.self, from: data).workflow_runs.first?.run_number else { throw URLError(.badServerResponse) }
+            try requireOK(response, step: "Đọc danh sách bản phát hành")
+            guard let latest = try JSONDecoder().decode([Release].self, from: data).compactMap({ $0.build }).max() else {
+                status("GitHub chưa có bản phát hành iOS đủ tệp."); return
+            }
             guard latest > activeBuild else { status("Bạn đang dùng build \\(activeBuild), đã cập nhật."); return }
             let base = "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/"
             status("Đang tải gói cập nhật…")
             let (payload, reply) = try await URLSession.shared.data(from: URL(string: base + "web-update.json")!)
-            guard (reply as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            try requireOK(reply, step: "Tải web-update.json")
             let update = try JSONDecoder().decode(WebUpdate.self, from: payload)
             guard update.build == latest else { throw URLError(.cannotDecodeContentData) }
             if !nativeID.isEmpty && update.native == nativeID {
@@ -153,7 +171,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
             status("Bản mới thay đổi phần iOS. Đang tải IPA để ký…")
             let url = URL(string: "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/ShunEntertainment-unsigned.ipa")!
             let (temp, result) = try await URLSession.shared.download(from: url)
-            guard (result as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            try requireOK(result, step: "Tải IPA")
             let file = FileManager.default.temporaryDirectory.appendingPathComponent("ShunEntertainment-\\(latest).ipa")
             if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
             try FileManager.default.moveItem(at: temp, to: file)
@@ -163,7 +181,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
             status("Chọn ứng dụng ký hoặc Lưu vào Tệp, rồi nhập IPA để ký và cài đè.")
             present(sheet, animated: true)
         } catch {
-            status("Chưa thể cập nhật. Kiểm tra kết nối và thử lại.")
+            status("Chưa thể cập nhật: \(error.localizedDescription) [\((error as NSError).code)]")
         }
     }
 
