@@ -1,4 +1,4 @@
-name: Check DASH manifest metadata
+name: Check VTV10 stream metadata
 on:
   push:
     branches: [test-mpd-manifests]
@@ -7,18 +7,17 @@ jobs:
   metadata:
     runs-on: ubuntu-latest
     steps:
-      - name: Read public MPD metadata
+      - name: Read stream response
         run: |
           python3 - <<'PY'
-          from urllib.request import Request,urlopen
-          import xml.etree.ElementTree as ET
-          for name,url in [('BBB','https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd'),('VTVPrime 1','https://livesctvng.vtvprime.vn/Live_DASHDRM1/ONSPORT1/manifest.mpd')]:
-              try:
-                  with urlopen(Request(url, headers={'Origin':'null'}),timeout=12) as response:
-                      print(name,response.status,response.headers.get('Content-Type'),response.headers.get('Access-Control-Allow-Origin'))
-                      root=ET.fromstring(response.read(4194304))
-                      print('Codecs', sorted({node.get('codecs') for node in root.iter() if node.get('codecs')}))
-                      print('Protection schemes',sorted({n.get('schemeIdUri','') for n in root.findall('.//{*}ContentProtection')}))
-              except Exception as error:
-                  print(name,type(error).__name__,str(error)[:100])
+          import urllib.request as u
+          from urllib.parse import urlsplit
+          from urllib.error import HTTPError
+          url='https://vmttv.dpdns.org/tv360/?id=vtv10'
+          try:
+              with u.urlopen(url,timeout=20) as r:
+                  data=r.read(8192).decode(errors='replace').lstrip()
+                  print('VTV10',r.status,r.headers.get_content_type(),urlsplit(r.url).hostname,'HLS',data.startswith('#EXTM3U'),'DASH','<MPD' in data,'HTML','<html' in data.lower(),'cors',r.headers.get('Access-Control-Allow-Origin'))
+          except HTTPError as err:
+              print('VTV10 HTTP',err.code,err.headers.get_content_type())
           PY
