@@ -62,6 +62,7 @@
     <div class="modal-foot"><small>Lưu ý: URL có token riêng tư sẽ được lưu trong bộ nhớ trình duyệt nếu lưu danh sách kênh.</small><button class="btn btn-soft" id="doneModal">Đóng</button></div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/dashjs@5.3.0/dist/modern/umd/dash.all.min.js"></script>
 <script src="channels.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
 <script>
@@ -260,8 +261,9 @@ function probePreview(state) {
       hlsPreview.on(Hls.Events.ERROR, (_, data) => { if (data.fatal) finish('error'); });
       hlsPreview.loadSource(channel.url);
       hlsPreview.attachMedia(media);
-    } else if (isDASH(channel.url) && window.dashjs) {
+    } else if (isDASH(channel.url) && prepareDash(media)) {
       dashPreview = dashjs.MediaPlayer().create();
+      dashPreview.on(dashjs.MediaPlayer.events.ERROR, () => finish('error'));
       dashPreview.initialize(media, channel.url, true);
     } else media.src = channel.url;
     media.play().catch(() => {});
@@ -335,7 +337,7 @@ function renderSources(){const root=$('sourceList');root.replaceChildren();if(!s
 }
 function renderAll(){renderNav();renderList();renderSources();renderPlayerButtons();}
 function toggleFavorite(url){if(favorites.has(url))favorites.delete(url);else favorites.add(url);persist();renderNav();renderList();renderPlayerButtons();}
-let streamCodec = '', dashIndex = -1;
+let streamCodec = '', dashRepresentation = null;
 function formatCodec(raw) {
   if (!raw) return 'Chưa xác định';
   const id = raw.match(/codecs=["']?([^"';]+)/i)?.[1] || raw;
@@ -352,9 +354,9 @@ function showMediaInfo() {
   const ext = url.split(/[?#]/)[0].match(/\.(mp4|webm|mov|ts|m4v|jpeg|jpg|png|webp|gif)$/i);
   const format = isHLS(url) ? 'HLS' : isDASH(url) ? 'MPEG-DASH' : ext?.[1].toUpperCase() || (photo ? 'Ảnh camera' : 'Chưa xác định');
   let level = hls?.levels?.[hls.currentLevel], codec = level?.videoCodec || streamCodec;
-  if (dash && dashIndex >= 0) {
-    level = dash.getBitrateInfoListFor('video').find(item => item.qualityIndex === dashIndex);
-    codec = dash.getCurrentTrackFor('video')?.codec;
+  if (dashRepresentation) {
+    level = {...dashRepresentation, bitrate:dashRepresentation.bandwidth};
+    codec = dashRepresentation.codecs;
   }
   const width = photo ? media.naturalWidth : media.videoWidth || level?.width;
   const height = photo ? media.naturalHeight : media.videoHeight || level?.height;
@@ -368,12 +370,18 @@ function showMediaInfo() {
     term.textContent = label; detail.textContent = value; item.append(term,detail); return item;
   }));
 }
-function clearPlayback(){streamCodec='';dashIndex=-1;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
+function clearPlayback(){streamCodec='';dashRepresentation=null;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.disableRemotePlayback=false;v.removeAttribute('disableremoteplayback');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
 function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='Shun Entertainment';renderPlayerButtons();}
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 function stageError(message){const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
 function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();const result=v.play();if(result?.catch)result.catch(()=>{if(!v.error)showToast('Nếu trình duyệt chặn tự phát, hãy nhấn nút Play trong video.', 'warn');});}
 function isHLS(url){return hlsLike(url)||/\b(?:format|type)=m3u8\b/i.test(url);}
+function prepareDash(media) {
+  if (!window.dashjs || !(window.ManagedMediaSource || window.MediaSource || window.WebKitMediaSource)) return false;
+  media.disableRemotePlayback = true;
+  media.setAttribute('disableremoteplayback', '');
+  return true;
+}
 function isDASH(url){return /\.mpd(?:[?#]|$)/i.test(url);}
 function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
   if(location.protocol==='https:'&&c.url.startsWith('http:'))showToast('Nguồn HTTP trên trang HTTPS có thể bị trình duyệt chặn (mixed content). Hãy dùng link HTTPS.', 'warn');
@@ -393,16 +401,28 @@ function playChannel(c){clearPlayback();active=c;showMediaInfo();$('stagePlaceho
       instance.attachMedia(video);
     }else if(video.canPlayType('application/vnd.apple.mpegurl')){playNative(c.url);}else{stageError('Trình duyệt hiện tại không hỗ trợ phát HLS. Hãy thử Edge, Chrome hoặc Safari mới.');}
   }else if(isDASH(c.url)){
-    if(window.dashjs){dash=dashjs.MediaPlayer().create();const instance=dash;
-      instance.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
-        if (instance !== dash) return;
-        dashIndex = dash.getQualityFor('video'); showMediaInfo();
-      });
-      instance.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, event => {
-        if (instance !== dash || event.mediaType !== 'video') return;
-        dashIndex = event.newQuality; showMediaInfo();
-      });
-      dash.initialize(video,c.url,true);$('playerCaption').textContent='ĐANG KẾT NỐI DASH';}else stageError('Chưa tải được thư viện DASH. Kiểm tra kết nối mạng với CDN.');
+    if (!prepareDash(video)) {
+      stageError('Thiết bị chưa hỗ trợ trình phát MPEG-DASH. Hãy thử iOS mới hơn hoặc nguồn HLS của kênh.');
+      return;
+    }
+    const instance = dash = dashjs.MediaPlayer().create();
+    const events = dashjs.MediaPlayer.events;
+    function refreshRepresentation() {
+      if (instance !== dash) return;
+      dashRepresentation = instance.getCurrentRepresentationForType('video');
+      showMediaInfo();
+    }
+    instance.on(events.STREAM_INITIALIZED,refreshRepresentation);
+    instance.on(events.QUALITY_CHANGE_RENDERED,event => { if (event.mediaType === 'video') refreshRepresentation(); });
+    instance.on(events.ERROR,event => {
+      if (instance !== dash) return;
+      const detail = String(event.error?.message || 'Không đọc được nguồn MPD');
+      stageError(/license|key system|drm|encrypted/i.test(detail)
+        ? 'Nguồn DASH yêu cầu DRM. Cần giấy phép phát tương thích từ nhà cung cấp.'
+        : 'Lỗi MPEG-DASH: ' + detail);
+    });
+    $('playerCaption').textContent='ĐANG KẾT NỐI DASH';
+    instance.initialize(video,c.url,true);
   }else {playNative(c.url);}
 }
 for (const event of ['loadedmetadata','resize','playing']) $('video').addEventListener(event,showMediaInfo);
@@ -491,7 +511,7 @@ $('trafficToggle').addEventListener('click', () => {
 });
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/dashjs@4/dist/dash.all.min.js" defer></script>
+
 </body>
 </html>
 

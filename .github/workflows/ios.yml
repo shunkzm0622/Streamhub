@@ -11,6 +11,21 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Bundle MPEG-DASH player for IPA and web updates
+        run: |
+          npm pack --ignore-scripts dashjs@5.3.0 --pack-destination "$RUNNER_TEMP"
+          tar -xOf "$RUNNER_TEMP/dashjs-5.3.0.tgz" package/dist/modern/umd/dash.all.min.js > "$RUNNER_TEMP/dash-player.js"
+          node --check "$RUNNER_TEMP/dash-player.js"
+          python3 - <<'PY'
+          import base64, os, pathlib
+          html = pathlib.Path("App/Web/index.html")
+          source = html.read_text()
+          url = "https://cdn.jsdelivr.net/npm/dashjs@5.3.0/dist/modern/umd/dash.all.min.js"
+          assert source.count(url) == 1
+          player = (pathlib.Path(os.environ["RUNNER_TEMP"]) / "dash-player.js").read_bytes()
+          assert len(player) > 100000
+          html.write_text(source.replace(url, "data:text/javascript;base64," + base64.b64encode(player).decode()))
+          PY
       - name: Build Release for iPhone and iPad
         run: |
           xcodebuild -project ShunEntertainment.xcodeproj -scheme ShunEntertainment \
