@@ -45,13 +45,14 @@ jobs:
           p=pathlib.Path("App/Web/channels.js"); p.write_text('window.bundledChannels=[];')
           p=pathlib.Path("App/Web/index.html")
           s=p.read_text().replace('loadGithubDefault();', '''loadGithubDefault();
-          setTimeout(() => {
+          if(location.protocol === 'file:') localStorage.setItem("streamhub.signal.v1:fixture","migration-ok");
+          if(location.protocol === 'https:') setTimeout(() => {
             const url="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd";
             $("playlistUrl").value=url; $("urlMode").value="stream"; $("importUrlBtn").click();
             setTimeout(() => $("channelsList").querySelector(".channel")?.click(),500);
             setInterval(() => {
               const v=$("video");
-              window.webkit.messageHandlers.testDash.postMessage(JSON.stringify({time:v.currentTime,width:v.videoWidth,state:v.readyState,error:$("stageError").hidden?"":$("stageError").textContent,media:v.error?.message,source:v.currentSrc.slice(0,24),mms:!!window.ManagedMediaSource}));
+              window.webkit.messageHandlers.testDash.postMessage(JSON.stringify({migrated:localStorage.getItem("streamhub.signal.v1:fixture")==="migration-ok",time:v.currentTime,width:v.videoWidth,state:v.readyState,error:$("stageError").hidden?"":$("stageError").textContent,media:v.error?.message,source:v.currentSrc.slice(0,24),mms:!!window.ManagedMediaSource}));
             },1000);
           },1000);''')
           p.write_text(s)
@@ -66,7 +67,7 @@ jobs:
             sleep 2
             if [ -f "$data/Documents/dash-test.json" ]; then
               cat "$data/Documents/dash-test.json"
-              if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(not(d["time"]>0.2 and d["width"]>0))' "$data/Documents/dash-test.json"; then exit 0; fi
+              if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(not(d["migrated"] and d["time"]>0.2 and d["width"]>0))' "$data/Documents/dash-test.json"; then exit 0; fi
             fi
           done
           exit 1
