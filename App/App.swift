@@ -136,7 +136,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
     private func requireOK(_ response: URLResponse, step: String) throws {
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 200 else {
-            throw NSError(domain: "ShunUpdate", code: code, userInfo: [NSLocalizedDescriptionKey: "\\(step): HTTP \\(code)"])
+            throw NSError(domain: "ShunUpdate", code: code, userInfo: [NSLocalizedDescriptionKey: "\(step): HTTP \(code)"])
         }
     }
 
