@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import KSPlayer
 import AVFoundation
 
 @main
@@ -19,6 +20,37 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     private var web: WKWebView!
     private var entry: URL!
+    private var fallback: KSPlayerLayer?
+    private var fallbackAttempt = -1
+
+    private func stopFallback() {
+        let previous = fallback
+        fallback = nil
+        previous?.delegate = nil
+        previous?.player.view?.removeFromSuperview()
+        previous?.stop()
+    }
+
+    private func handleFallback(_ body: [String: Any]) {
+        guard let action = body["action"] as? String else { return }
+        if action == "stop" { stopFallback(); return }
+        guard let attempt = body["attempt"] as? Int,
+              let x = body["x"] as? CGFloat, let y = body["y"] as? CGFloat,
+              let w = body["w"] as? CGFloat, let h = body["h"] as? CGFloat else { return }
+        if action == "play" {
+            guard let raw = body["url"] as? String, let url = URL(string: raw),
+                  ["http","https"].contains(url.scheme?.lowercased() ?? "") else { return }
+            stopFallback()
+            fallbackAttempt = attempt
+            KSOptions.firstPlayerType = KSMEPlayer.self
+            let layer = KSPlayerLayer(url: url, isAutoPlay: true, options: KSOptions(), delegate: self)
+            fallback = layer
+            if let video = layer.player.view { web.addSubview(video) }
+        }
+        if fallbackAttempt == attempt {
+            fallback?.player.view?.frame = CGRect(x: x, y: y, width: w, height: h)
+        }
+    }
 
     private let playerURL = URL(string: "https://shun-player.invalid/index.html")!
     private var pendingPlayerNavigation = false
@@ -39,6 +71,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
         config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.add(self, name: "exportChannels")
         config.userContentController.add(self, name: "checkUpdate")
+        config.userContentController.add(self, name: "ksFallback")
         web = WKWebView(frame: .zero, configuration: config)
         web.uiDelegate = self
         web.navigationDelegate = self
@@ -256,6 +289,12 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "ksFallback", message.frameInfo.isMainFrame,
+           message.frameInfo.request.url == playerURL, web.url == playerURL,
+           let body = message.body as? [String: Any] {
+            handleFallback(body)
+            return
+        }
         if message.name == "checkUpdate", message.frameInfo.isMainFrame,
            message.frameInfo.request.url == playerURL, web.url == playerURL {
             Task { await checkForUpdate() }
@@ -277,4 +316,18 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
             present(alert, animated: true)
         }
     }
+}
+
+extension PlayerController: KSPlayerLayerDelegate {
+    func player(layer: KSPlayerLayer, state: KSPlayerState) {
+        guard layer === fallback, state == .bufferFinished else { return }
+        web.callAsyncJavaScript("ksStatus(attempt, '')", arguments: ["attempt": fallbackAttempt], in: nil, in: .page, completionHandler: nil)
+    }
+    func player(layer: KSPlayerLayer, finish error: Error?) {
+        guard layer === fallback else { return }
+        stopFallback()
+        web.callAsyncJavaScript("ksStatus(attempt, message)", arguments: ["attempt": fallbackAttempt, "message": error?.localizedDescription ?? "Đã kết thúc"], in: nil, in: .page, completionHandler: nil)
+    }
+    func player(layer: KSPlayerLayer, currentTime: TimeInterval, totalTime: TimeInterval) {}
+    func player(layer: KSPlayerLayer, bufferedCount: Int, consumeTime: TimeInterval) {}
 }

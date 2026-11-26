@@ -371,10 +371,40 @@ function showMediaInfo() {
     term.textContent = label; detail.textContent = value; item.append(term,detail); return item;
   }));
 }
-function clearPlayback(){playbackAttempt++;streamCodec='';dashRepresentation=null;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.disableRemotePlayback=false;v.removeAttribute('disableremoteplayback');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
+function clearPlayback(){if(ksAttempt === playbackAttempt) window.webkit?.messageHandlers?.ksFallback?.postMessage({action:'stop'});playbackAttempt++;streamCodec='';dashRepresentation=null;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.disableRemotePlayback=false;v.removeAttribute('disableremoteplayback');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
 function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='Shun Entertainment';renderPlayerButtons();}
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
-function stageError(message){const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
+let ksAttempt = -1;
+function positionKS(action) {
+  const r = $('stage').getBoundingClientRect();
+  window.webkit.messageHandlers.ksFallback.postMessage({action,attempt:playbackAttempt,url:active.url,x:r.x,y:r.y,w:r.width,h:r.height});
+}
+function ksStatus(attempt, message) {
+  if (attempt !== playbackAttempt) return;
+  if (message) {
+    $('stageError').textContent = 'KSPlayer · ' + message;
+    $('stageError').hidden = false;
+  }
+  $('playerCaption').textContent = message ? 'KSPLAYER · ĐÃ DỪNG' : 'ĐANG PHÁT · KSPLAYER';
+}
+for (const event of ['resize','scroll']) window.addEventListener(event, () => {
+  if (active && ksAttempt === playbackAttempt) positionKS('layout');
+}, {passive:true,capture:true});
+function stageError(message){
+  if(active && active.kind !== 'image' && window.webkit?.messageHandlers?.ksFallback) {
+    if (ksAttempt === playbackAttempt) return;
+    ksAttempt = playbackAttempt;
+    inspectedAttempt = playbackAttempt;
+    if (dash) {const old=dash;dash=null;old.reset();}
+    if (hls) {const old=hls;hls=null;old.destroy();}
+    $('video').pause(); $('video').hidden=true;
+    $('video').removeAttribute('src'); $('video').load();
+    $('stageError').hidden=true;
+    $('playerCaption').textContent='ĐANG MỞ BẰNG KSPLAYER';
+    positionKS('play');
+    return;
+  }
+const e=$('stageError');e.textContent=message;e.hidden=false;$('playerCaption').textContent='KHÔNG PHÁT ĐƯỢC';}
 function playNative(url){const v=$('video');v.hidden=false;v.src=url;v.load();const result=v.play();if(result?.catch)result.catch(()=>{if(!v.error)showToast('Nếu trình duyệt chặn tự phát, hãy nhấn nút Play trong video.', 'warn');});}
 function isHLS(url){return hlsLike(url)||/\b(?:format|type)=m3u8\b/i.test(url);}
 function prepareDash(media) {
@@ -486,6 +516,7 @@ media.addEventListener('error',()=>{if(!active || media !== $('video') || media.
   if (media.error?.code === 4 && media.dataset.inspectSource === 'yes') {
     if (inspectedAttempt !== playbackAttempt) {
       inspectedAttempt = playbackAttempt;
+      if (window.webkit?.messageHandlers?.ksFallback) { stageError(''); return; }
       stageError('Đang kiểm tra phản hồi của nguồn…');
       inspectFailedStream(active, playbackAttempt);
     }

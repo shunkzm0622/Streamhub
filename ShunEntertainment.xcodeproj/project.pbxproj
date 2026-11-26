@@ -6,6 +6,9 @@
 	};
 	objectVersion = 56;
 	objects = {
+        A00000000000000000000001 = { isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/kingslay/KSPlayer.git"; requirement = { kind = exactVersion; version = 2.3.4; }; };
+        A00000000000000000000002 = { isa = XCSwiftPackageProductDependency; package = A00000000000000000000001; productName = KSPlayer; };
+        A00000000000000000000003 = { isa = PBXBuildFile; productRef = A00000000000000000000002; };
 		000000000000000000000001 = {
 			isa = "PBXProject";
 			buildConfigurationList = "00000000000000000000000B";
@@ -16,6 +19,7 @@
 			productRefGroup = "000000000000000000000004";
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (A00000000000000000000001);
 			targets = ("000000000000000000000005");
 		};
 		000000000000000000000002 = {
@@ -43,6 +47,7 @@
 			productType = "com.apple.product-type.application";
 			buildConfigurationList = "00000000000000000000000C";
 			buildPhases = ("000000000000000000000006", "000000000000000000000007", "000000000000000000000008");
+			packageProductDependencies = (A00000000000000000000002);
 			buildRules = ();
 			dependencies = ();
 		};
@@ -55,7 +60,7 @@
 		000000000000000000000007 = {
 			isa = "PBXFrameworksBuildPhase";
 			buildActionMask = 2147483647;
-			files = ();
+			files = (A00000000000000000000003);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		000000000000000000000008 = {
