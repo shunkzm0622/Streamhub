@@ -4,7 +4,7 @@ on:
     branches: [ios-ipa]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-ipa:
     runs-on: macos-15
@@ -15,7 +15,7 @@ jobs:
         run: |
           xcodebuild -project ShunEntertainment.xcodeproj -scheme ShunEntertainment \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+            -derivedDataPath build CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=NO build
       - name: Package and verify unsigned IPA
         shell: bash
         run: |
@@ -35,3 +35,14 @@ jobs:
           name: ShunEntertainment-unsigned-IPA
           path: ShunEntertainment-unsigned.ipa
           if-no-files-found: error
+
+      - name: Publish downloadable iOS build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ios-build-$GITHUB_RUN_NUMBER"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" ShunEntertainment-unsigned.ipa --clobber
+          else
+            gh release create "$tag" ShunEntertainment-unsigned.ipa --target "$GITHUB_SHA" --title "Shun Entertainment iOS · Build $GITHUB_RUN_NUMBER" --notes "IPA chưa ký dành cho ESign hoặc Feather." --latest=false
+          fi
