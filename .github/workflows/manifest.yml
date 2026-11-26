@@ -1,0 +1,24 @@
+name: Check DASH manifest metadata
+on:
+  push:
+    branches: [test-mpd-manifests]
+permissions: {}
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read public MPD metadata
+        run: |
+          python3 - <<'PY'
+          from urllib.request import Request,urlopen
+          import xml.etree.ElementTree as ET
+          for name,url in [('BBB','https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd'),('VTVPrime 1','https://livesctvng.vtvprime.vn/Live_DASHDRM1/ONSPORT1/manifest.mpd')]:
+              try:
+                  with urlopen(Request(url, headers={'Origin':'null'}),timeout=12) as response:
+                      print(name,response.status,response.headers.get('Content-Type'),response.headers.get('Access-Control-Allow-Origin'))
+                      root=ET.fromstring(response.read(4194304))
+                      print('Codecs', sorted({node.get('codecs') for node in root.iter() if node.get('codecs')}))
+                      print('Protection schemes',sorted({n.get('schemeIdUri','') for n in root.findall('.//{*}ContentProtection')}))
+              except Exception as error:
+                  print(name,type(error).__name__,str(error)[:100])
+          PY
