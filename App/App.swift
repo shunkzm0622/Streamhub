@@ -20,6 +20,11 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
     private var web: WKWebView!
     private var entry: URL!
 
+    private let playerURL = URL(string: "https://shun-player.invalid/index.html")!
+    private var pendingPlayerNavigation = false
+    private var legacyEntry: URL?
+    private let migrationFlag = "shunPlayerStorageMigrated"
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.035, green: 0.055, blue: 0.106, alpha: 1)
@@ -46,7 +51,61 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
                                     web.bottomAnchor.constraint(equalTo: safe.bottomAnchor)])
         entry = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "Web")!
         restoreWebUpdate()
-        web.loadFileURL(entry, allowingReadAccessTo: entry.deletingLastPathComponent())
+        if UserDefaults.standard.bool(forKey: migrationFlag) {
+            openPlayer()
+        } else {
+            let previousBuild = UserDefaults.standard.integer(forKey: "webBuild")
+            let saved = updatesRoot.appendingPathComponent(String(previousBuild)).appendingPathComponent("index.html")
+            let legacy = previousBuild > 0 && FileManager.default.fileExists(atPath: saved.path) ? saved : entry!
+            legacyEntry = legacy
+            web.loadFileURL(legacy, allowingReadAccessTo: legacy.deletingLastPathComponent())
+        }
+    }
+
+    private func openPlayer(seed: [String: String]? = nil) {
+        do {
+            var html = try String(contentsOf: entry, encoding: .utf8)
+            let channels = try Data(contentsOf: entry.deletingLastPathComponent().appendingPathComponent("channels.js"))
+            html = html.replacingOccurrences(of: "<script src=\"channels.js\"></script>",
+                with: "<script src=\"data:text/javascript;base64,\(channels.base64EncodedString())\"></script>")
+            if let seed = seed {
+                let data = try JSONEncoder().encode(seed).base64EncodedString()
+                let restore = """
+                <script>
+                try {
+                  const bytes = Uint8Array.from(atob('\(data)'), c => c.charCodeAt(0));
+                  for (const [k,v] of Object.entries(JSON.parse(new TextDecoder().decode(bytes)))) {
+                    if (localStorage.getItem(k) === null) localStorage.setItem(k,v);
+                  }
+                  window.shunDidRestore = true;
+                } catch {}
+                </script>
+                """
+                html = html.replacingOccurrences(of: "<head>", with: "<head>" + restore)
+            }
+            pendingPlayerNavigation = true
+            web.loadSimulatedRequest(URLRequest(url: playerURL), responseHTML: html)
+        } catch {
+            let alert = UIAlertController(title: "Không mở được trình phát", message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Thử lại", style: .default) { _ in self.openPlayer(seed: seed) })
+            present(alert, animated: true)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let legacy = legacyEntry, webView.url?.standardizedFileURL == legacy.standardizedFileURL {
+            legacyEntry = nil
+            let snapshot = """
+            Object.fromEntries(Object.keys(localStorage)
+              .filter(k => k === 'streamhub_v1_library' || k === 'streamhub_v1_favorites' || k.startsWith('streamhub.signal.v1:'))
+              .map(k => [k,localStorage.getItem(k)]))
+            """
+            webView.evaluateJavaScript(snapshot) { value, _ in self.openPlayer(seed: value as? [String: String]) }
+        } else if webView.url == playerURL && !UserDefaults.standard.bool(forKey: migrationFlag) {
+            webView.evaluateJavaScript("window.shunDidRestore === true") { value, _ in
+                if value as? Bool == true { UserDefaults.standard.set(true, forKey: self.migrationFlag) }
+            }
+        }
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
@@ -54,6 +113,12 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+        if pendingPlayerNavigation, url == playerURL, navigationAction.targetFrame?.isMainFrame == true,
+           navigationAction.navigationType == .other {
+            pendingPlayerNavigation = false
+            decisionHandler(.allow)
+            return
+        }
         let external = ["https", "http"].contains(url.scheme?.lowercased() ?? "")
         if navigationAction.targetFrame == nil || (navigationAction.targetFrame?.isMainFrame == true && external) {
             decisionHandler(.cancel)
@@ -115,7 +180,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
         try fm.moveItem(at: stage, to: dir)
         UserDefaults.standard.set(update.build, forKey: "webBuild")
         restoreWebUpdate()
-        web.loadFileURL(entry, allowingReadAccessTo: dir)
+        openPlayer()
     }
 
     private var updating = false
@@ -187,12 +252,12 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "checkUpdate", message.frameInfo.isMainFrame,
-           message.frameInfo.request.url?.standardizedFileURL == entry.standardizedFileURL {
+           message.frameInfo.request.url == playerURL, web.url == playerURL {
             Task { await checkForUpdate() }
             return
         }
         guard message.name == "exportChannels", message.frameInfo.isMainFrame,
-              message.frameInfo.request.url?.standardizedFileURL == entry.standardizedFileURL,
+              message.frameInfo.request.url == playerURL, web.url == playerURL,
               let json = message.body as? String else { return }
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("shun-entertainment-channels.json")
         do {
