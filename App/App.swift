@@ -185,7 +185,10 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
 
     private var updating = false
     private struct Release: Decodable {
-        struct Asset: Decodable { let name: String }
+        struct Asset: Decodable {
+            let name: String
+            let browser_download_url: URL
+        }
         let tag_name: String
         let draft: Bool
         let prerelease: Bool
@@ -219,13 +222,16 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
             let endpoint = URL(string: "https://api.github.com/repos/shunkzm0622/Streamhub/releases?per_page=100")!
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20))
             try requireOK(response, step: "Đọc danh sách bản phát hành")
-            guard let latest = try JSONDecoder().decode([Release].self, from: data).compactMap({ $0.build }).max() else {
+            let releases = try JSONDecoder().decode([Release].self, from: data)
+            guard let release = releases.filter({ $0.build != nil }).max(by: { ($0.build ?? 0) < ($1.build ?? 0) }),
+                  let latest = release.build,
+                  let payloadURL = release.assets.first(where: { $0.name == "web-update.json" })?.browser_download_url,
+                  let ipaURL = release.assets.first(where: { $0.name == "ShunEntertainment-unsigned.ipa" })?.browser_download_url else {
                 status("GitHub chưa có bản phát hành iOS đủ tệp."); return
             }
-            guard latest > activeBuild else { status("Bạn đang dùng build \\(activeBuild), đã cập nhật."); return }
-            let base = "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/"
+            guard latest > activeBuild else { status("Bạn đang dùng build \(activeBuild), đã cập nhật."); return }
             status("Đang tải gói cập nhật…")
-            let (payload, reply) = try await URLSession.shared.data(from: URL(string: base + "web-update.json")!)
+            let (payload, reply) = try await URLSession.shared.data(from: payloadURL)
             try requireOK(reply, step: "Tải web-update.json")
             let update = try JSONDecoder().decode(WebUpdate.self, from: payload)
             guard update.build == latest else { throw URLError(.cannotDecodeContentData) }
@@ -234,10 +240,9 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
                 return
             }
             status("Bản mới thay đổi phần iOS. Đang tải IPA để ký…")
-            let url = URL(string: "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/ShunEntertainment-unsigned.ipa")!
-            let (temp, result) = try await URLSession.shared.download(from: url)
+            let (temp, result) = try await URLSession.shared.download(from: ipaURL)
             try requireOK(result, step: "Tải IPA")
-            let file = FileManager.default.temporaryDirectory.appendingPathComponent("ShunEntertainment-\\(latest).ipa")
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("ShunEntertainment-\(latest).ipa")
             if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
             try FileManager.default.moveItem(at: temp, to: file)
             let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
