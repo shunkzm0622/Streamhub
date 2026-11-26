@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import AVFoundation
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -24,6 +25,12 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
         view.backgroundColor = UIColor(red: 0.035, green: 0.055, blue: 0.106, alpha: 1)
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
+        config.allowsPictureInPictureMediaPlayback = true
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        } catch {
+            NSLog("Audio session: %@", error.localizedDescription)
+        }
         config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.add(self, name: "exportChannels")
         web = WKWebView(frame: .zero, configuration: config)

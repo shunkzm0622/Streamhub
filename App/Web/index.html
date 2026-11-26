@@ -34,37 +34,19 @@
       #mediaInfo:not([hidden]){display:flex;flex-wrap:wrap;gap:10px 24px;padding:0 18px 16px;margin:0}#mediaInfo dt{font-size:11px;color:#91a6bf}#mediaInfo dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
   #iptvView[hidden],.top-actions [hidden]{display:none}#trafficView iframe{display:block;width:100%;height:calc(100dvh - 145px);min-height:420px;border:0;border-radius:12px;background:#10192b}.top-actions{flex-wrap:wrap}
   .brand-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px 24px}.traffic-brand{display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:3px 8px;border:1px solid transparent;border-radius:12px;background:transparent;color:#eaf0ff;font:inherit;font-size:19px;font-weight:750;letter-spacing:-.4px}.traffic-brand:hover,.traffic-brand[aria-expanded="true"]{background:#17283b;border-color:#355267}.traffic-brand:focus-visible{outline:2px solid #79e3d7;outline-offset:2px}.camera-mark{position:relative;width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,#59ddd3,#7772f9)}.camera-mark::before,.camera-mark::after{content:"";position:absolute;background:#102135}.camera-mark::before{left:7px;top:12px;width:15px;height:12px;border-radius:3px}.camera-mark::after{left:23px;top:12px;width:6px;height:12px;clip-path:polygon(0 30%,100% 0,100% 100%,0 70%)}@media(max-width:790px){.topbar{flex-wrap:wrap}.brand-links{gap:4px 12px}}
-  </style>
+  html,body,.app,.workspace{height:100%;min-height:0;overflow:hidden;margin:0}.workspace{padding:0;display:flex;flex-direction:column}.watch{height:100%;display:flex;flex-direction:column;min-height:0}.pinned{flex:none;background:#10192b}.pinned .stage{min-height:0;height:min(56.25vw,40vh);aspect-ratio:auto}.now,.tools,.option-title{display:flex;align-items:center;gap:8px;padding:6px 10px}.now strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.now button{min-height:40px}.panel{display:flex;flex-direction:column;flex:1;min-height:0;border:0;border-radius:0;padding:0}.tools .search,.tools .mobile-category{margin:0;min-width:0}.tools .search{flex:1}.tools .mobile-category{width:35%}.channels-grid{display:flex;flex-direction:column;flex:1;min-height:0;max-height:none;padding:0 8px 8px;gap:4px;overflow:auto}.channel{flex:none}.stage-placeholder h2{font-size:17px}#options{color:#eaf0ff;background:#10192b;border:1px solid #34465d;border-radius:14px;width:min(95vw,470px);max-height:85vh;overflow:auto}#options::backdrop{background:#0009}.option-title{justify-content:space-between}#options .brand-links,#options .top-actions,#options .panel-controls{padding:8px;flex-wrap:wrap}#trafficView{min-height:0;flex:1}#trafficView iframe{height:100%;min-height:0}#backIPTV[hidden]{display:none}
+</style>
 </head>
 <body>
 <div class="app">
   <main class="workspace">
-    <header class="topbar">
+    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div>
       <div class="brand-links">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
       <button type="button" class="traffic-brand" id="trafficToggle" aria-controls="trafficView" aria-expanded="false"><span class="camera-mark" aria-hidden="true"></span><span id="trafficLabel">Traffic camera</span></button></div>
       <div class="top-actions"><button class="btn btn-soft" id="manageSources">Quản lý nguồn phát</button><button id="openImport" class="btn btn-primary">＋ Thêm nguồn</button></div>
-    </header>
-    <div class="content" id="iptvView">
-      <section>
-        <div class="section-title"><span class="live-dot"></span> TRÌNH PHÁT</div>
-        <article class="player-card">
-          <div class="player-header"><div class="player-headtitle"><div class="player-icon">▷</div><div style="min-width:0"><div class="overline" id="playerCaption">SẴN SÀNG</div><div class="player-name" id="playerName">Chưa chọn kênh</div></div></div><div class="player-tag" id="playerTag">Shun Entertainment</div></div>
-          <div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><div class="stage-badge">▷</div><h2>Chọn một kênh để bắt đầu</h2><p>Thêm playlist M3U / JSON hoặc dán link stream. Chọn kênh trong thư viện để phát trực tiếp.</p></div><div class="stage-error" id="stageError" hidden></div></div>
-          <div class="player-actions"><button class="btn btn-soft btn-sm" id="retryBtn" disabled>↻ Tải lại</button><button class="btn btn-soft btn-sm" id="favoriteCurrent" disabled>☆ Yêu thích</button><button class="btn btn-soft btn-sm" id="copyCurrent" disabled>▤ Sao chép link</button><span class="spacer"></span><button class="btn btn-soft btn-sm" id="openCurrent" disabled>↗ Mở link</button><button class="btn btn-soft btn-sm" id="fullscreenBtn" disabled>⛶ Toàn màn hình</button></div>
-          <div class="play-info"><div class="info-left"><div class="play-group" id="playerGroup">Chưa có nguồn phát</div><div class="play-source" id="playerUrl">Thêm playlist để xem các kênh.</div></div><div style="font-size:11px;color:#8fa2ba;white-space:nowrap" id="playMode">—</div></div>
-          <dl id="mediaInfo" aria-label="Thông tin kỹ thuật" hidden></dl>
-        </article>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><div><h2>Danh sách kênh <span id="resultCount" style="color:#7ee7db;font-size:13px;margin-left:4px">0</span></h2><div class="panel-sub" id="sourceSummary">Chưa có playlist. Hãy thêm nguồn để bắt đầu.</div></div><div class="panel-controls"><button class="btn btn-soft btn-sm" id="reloadChannels" title="Kiểm tra lại các kênh No signal">↻ Reload kênh</button><button class="btn btn-soft btn-sm" id="showDemo">▷ Kênh demo</button><button class="btn btn-soft btn-sm" id="exportBtn" title="Xuất danh sách thành JSON">↓ JSON</button></div></div>
-        <label class="filter-label" for="mobileCategory">Danh mục</label>
-        <select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select>
-        <label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label>
-        <div class="channels-grid" id="channelsList"></div>
-        <div class="footer-note">Hỗ trợ phát <b>HLS (.m3u8)</b>, <b>MP4 / WebM</b>, một số dạng luồng được trình duyệt hỗ trợ và <b>ảnh camera</b>. Nguồn HTTP, CORS, DRM hoặc yêu cầu header đặc biệt có thể không phát được trên GitHub Pages.</div>
-      </section>
-    </div>
+    <div class="panel-controls"><button class="btn btn-soft btn-sm" id="reloadChannels" title="Kiểm tra lại các kênh No signal">↻ Reload kênh</button><button class="btn btn-soft btn-sm" id="showDemo">▷ Kênh demo</button><button class="btn btn-soft btn-sm" id="exportBtn" title="Xuất danh sách thành JSON">↓ JSON</button></div><div class="player-actions"><button class="btn btn-soft btn-sm" id="retryBtn" disabled>↻ Tải lại</button><button class="btn btn-soft btn-sm" id="favoriteCurrent" disabled>☆ Yêu thích</button><button class="btn btn-soft btn-sm" id="copyCurrent" disabled>▤ Sao chép link</button><span class="spacer"></span><button class="btn btn-soft btn-sm" id="openCurrent" disabled>↗ Mở link</button><button class="btn btn-soft btn-sm" id="fullscreenBtn" disabled>⛶ Toàn màn hình</button></div><div class="play-info"><div class="info-left"><div class="play-group" id="playerGroup">Chưa có nguồn phát</div><div class="play-source" id="playerUrl">Thêm playlist để xem các kênh.</div></div><div style="font-size:11px;color:#8fa2ba;white-space:nowrap" id="playMode">—</div></div>
+          <dl id="mediaInfo" aria-label="Thông tin kỹ thuật" hidden></dl><span id="playerCaption" hidden></span><span id="playerTag" hidden></span><p id="sourceSummary"></p></dialog><button id="backIPTV" class="btn" hidden>← Quay lại IPTV</button>
     <section id="trafficView" aria-label="Camera giao thông TP.HCM" hidden></section>
   </main>
 </div>
@@ -148,7 +130,7 @@ function addSource(name,items,meta={}){if(!items.length)throw Error('Không tìm
 function rebuild(){channels=[];for(const source of sources.filter(source => source.enabled !== false))for(let i=0;i<source.items.length;i++){const item=source.items[i];if(isHttpLink(item.url))channels.push({...item,sourceId:source.id,sourceName:source.name,key:source.id+':'+i});}queuePreviews();}
 function groups(){const counts=new Map();channels.forEach(c=>counts.set(c.group,(counts.get(c.group)||0)+1));return [...counts].sort((a,b)=>a[0].localeCompare(b[0],'vi'));}
 function counts(){return{all:channels.length,favorites:channels.filter(c=>favorites.has(c.url)).length};}
-function chooseFilter(newFilter){filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;if(window.innerWidth<790) document.querySelector('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
+function chooseFilter(newFilter){filter=newFilter;renderNav();renderList();$('mobileCategory').value=filter;}
 function renderNav(){const cnt=counts();const sel=$('mobileCategory');sel.replaceChildren();
   const library = document.createElement('optgroup'); library.label = 'Thư viện';
   const categories = document.createElement('optgroup'); categories.label = 'Danh mục kênh'; sel.append(library,categories);
@@ -466,12 +448,32 @@ async function loadGithubDefault(){
   }catch(e){console.info('Không tìm thấy channels.json mặc định hoặc dữ liệu không hợp lệ.',e.message);}
 }
 loadGithubDefault();
+const options = $('options'), videoElement = $('video');
+$('openOptions').onclick = () => options.showModal();
+$('closeOptions').onclick = () => options.close();
+$('backIPTV').onclick = () => $('trafficToggle').click();
+for (const id of ['openImport','manageSources','trafficToggle','showDemo']) $(id).addEventListener('click', () => options.close());
+function updatePiP() {
+  const supported = videoElement.webkitSupportsPresentationMode?.('picture-in-picture') ||
+    (document.pictureInPictureEnabled && typeof videoElement.requestPictureInPicture === 'function');
+  $('pip').disabled = !supported || videoElement.hidden || videoElement.readyState < 2;
+}
+for (const event of ['loadeddata','playing','emptied','error','webkitpresentationmodechanged']) videoElement.addEventListener(event,updatePiP);
+$('pip').onclick = async () => {
+  try {
+    if (videoElement.webkitSupportsPresentationMode?.('picture-in-picture')) {
+      videoElement.webkitSetPresentationMode(videoElement.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture');
+    } else if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    else await videoElement.requestPictureInPicture();
+  } catch { showToast('Không thể thu nhỏ video này.', 'warn'); }
+};
 $('trafficToggle').addEventListener('click', () => {
   const view = $('trafficView'), open = view.hidden;
   $('iptvView').hidden = open;
   $('manageSources').hidden = open;
   $('openImport').hidden = open;
   view.hidden = !open;
+  $('backIPTV').hidden = !open;
   $('trafficToggle').setAttribute('aria-expanded', String(open));
   $('trafficLabel').textContent = open ? '← Quay lại IPTV' : 'Traffic camera';
   if (open) {

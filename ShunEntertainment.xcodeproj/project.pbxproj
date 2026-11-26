@@ -139,6 +139,7 @@
 				PRODUCT_NAME = "ShunEntertainment";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
 				GENERATE_INFOPLIST_FILE = "YES";
+				INFOPLIST_FILE = "App/Playback.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
 				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -156,6 +157,7 @@
 				PRODUCT_NAME = "ShunEntertainment";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
 				GENERATE_INFOPLIST_FILE = "YES";
+				INFOPLIST_FILE = "App/Playback.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
 				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
