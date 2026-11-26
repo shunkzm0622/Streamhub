@@ -1,7 +1,7 @@
 name: Test DASH playback on iPhone Simulator
 on:
   push:
-    branches: [test-ios-dash-playback]
+    branches: [test-dash-web-origin]
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +36,9 @@ jobs:
           python3 - <<'PY'
           import pathlib
           p=pathlib.Path("App/App.swift")
+          p.write_text(p.read_text().replace('web.loadFileURL(entry, allowingReadAccessTo: entry.deletingLastPathComponent())', '''let html = (try! String(contentsOf: entry)).replacingOccurrences(of: "channels.js", with: "data:text/javascript,window.bundledChannels=%5B%5D")
+                  web.loadSimulatedRequest(URLRequest(url: URL(string: "https://shun-player.invalid/index.html")!), responseHTMLString: html)''').replace('let external =', '''if url.host == "shun-player.invalid" { decisionHandler(.allow); return }
+                  let external ='''))
           p.write_text(p.read_text().replace('config.userContentController.add(self, name: "exportChannels")','config.userContentController.add(self, name: "testDash")\n        config.userContentController.add(self, name: "exportChannels")').replace('        if message.name == "checkUpdate"', '''        if message.name == "testDash", let body = message.body as? String {
                       let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                       try? body.write(to: docs.appendingPathComponent("dash-test.json"), atomically: true, encoding: .utf8)
