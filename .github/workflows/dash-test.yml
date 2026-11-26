@@ -31,13 +31,13 @@ jobs:
           set -euo pipefail
           id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in reversed(list(json.load(sys.stdin)["devices"].values())) for d in ds if d["name"].startswith("iPhone")))')
           xcrun simctl boot "$id"
-          xcrun simctl bootstatus "$id" -b
+
           xcrun simctl getenv "$id" SIMULATOR_RUNTIME_VERSION || true
           python3 - <<'PY'
           import pathlib
           p=pathlib.Path("App/App.swift")
           p.write_text(p.read_text().replace('web.loadFileURL(entry, allowingReadAccessTo: entry.deletingLastPathComponent())', '''let html = (try! String(contentsOf: entry)).replacingOccurrences(of: "channels.js", with: "data:text/javascript,window.bundledChannels=%5B%5D")
-                  web.loadSimulatedRequest(URLRequest(url: URL(string: "https://shun-player.invalid/index.html")!), responseHTMLString: html)''').replace('let external =', '''if url.host == "shun-player.invalid" { decisionHandler(.allow); return }
+                  web.loadSimulatedRequest(URLRequest(url: URL(string: "https://shun-player.invalid/index.html")!), responseHTML: html)''').replace('let external =', '''if url.host == "shun-player.invalid" { decisionHandler(.allow); return }
                   let external ='''))
           p.write_text(p.read_text().replace('config.userContentController.add(self, name: "exportChannels")','config.userContentController.add(self, name: "testDash")\n        config.userContentController.add(self, name: "exportChannels")').replace('        if message.name == "checkUpdate"', '''        if message.name == "testDash", let body = message.body as? String {
                       let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
