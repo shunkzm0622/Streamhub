@@ -45,6 +45,7 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
                                     web.topAnchor.constraint(equalTo: safe.topAnchor),
                                     web.bottomAnchor.constraint(equalTo: safe.bottomAnchor)])
         entry = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "Web")!
+        restoreWebUpdate()
         web.loadFileURL(entry, allowingReadAccessTo: entry.deletingLastPathComponent())
     }
 
@@ -71,6 +72,52 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
         present(alert, animated: true)
     }
 
+    private struct WebUpdate: Decodable {
+        let native: String
+        let build: Int
+        let html: String
+        let channels: String
+    }
+    private var bundledBuild: Int {
+        Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
+    }
+    private var nativeID: String {
+        guard let url = Bundle.main.url(forResource: "native-id", withExtension: "txt", subdirectory: "Web") else { return "" }
+        return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+    }
+    private var updatesRoot: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WebUpdates", isDirectory: true)
+    }
+    private var activeBuild: Int = 0
+
+    private func restoreWebUpdate() {
+        activeBuild = bundledBuild
+        let number = UserDefaults.standard.integer(forKey: "webBuild")
+        guard number > bundledBuild, !nativeID.isEmpty else { return }
+        let dir = updatesRoot.appendingPathComponent(String(number))
+        guard (try? String(contentsOf: dir.appendingPathComponent("native-id.txt"), encoding: .utf8)) == nativeID,
+              ["index.html","channels.js"].allSatisfy({ FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path) }) else { return }
+        entry = dir.appendingPathComponent("index.html")
+        activeBuild = number
+    }
+
+    private func apply(_ update: WebUpdate) throws {
+        guard !update.html.isEmpty, !update.channels.isEmpty else { throw URLError(.cannotDecodeContentData) }
+        let fm = FileManager.default
+        let stage = updatesRoot.appendingPathComponent(UUID().uuidString)
+        let dir = updatesRoot.appendingPathComponent(String(update.build))
+        try fm.createDirectory(at: stage, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: stage) }
+        try update.html.write(to: stage.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        try update.channels.write(to: stage.appendingPathComponent("channels.js"), atomically: true, encoding: .utf8)
+        try update.native.write(to: stage.appendingPathComponent("native-id.txt"), atomically: true, encoding: .utf8)
+        if fm.fileExists(atPath: dir.path) { try fm.removeItem(at: dir) }
+        try fm.moveItem(at: stage, to: dir)
+        UserDefaults.standard.set(update.build, forKey: "webBuild")
+        restoreWebUpdate()
+        web.loadFileURL(entry, allowingReadAccessTo: dir)
+    }
+
     private var updating = false
     private struct Runs: Decodable {
         struct Run: Decodable { let run_number: Int }
@@ -92,9 +139,18 @@ final class PlayerController: UIViewController, WKUIDelegate, WKNavigationDelega
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20))
             guard (response as? HTTPURLResponse)?.statusCode == 200,
                   let latest = try JSONDecoder().decode(Runs.self, from: data).workflow_runs.first?.run_number else { throw URLError(.badServerResponse) }
-            let installed = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
-            guard latest > installed else { status("Bạn đang dùng build \\(installed), đã cập nhật."); return }
-            status("Đang tải IPA build \\(latest)…")
+            guard latest > activeBuild else { status("Bạn đang dùng build \\(activeBuild), đã cập nhật."); return }
+            let base = "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/"
+            status("Đang tải gói cập nhật…")
+            let (payload, reply) = try await URLSession.shared.data(from: URL(string: base + "web-update.json")!)
+            guard (reply as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            let update = try JSONDecoder().decode(WebUpdate.self, from: payload)
+            guard update.build == latest else { throw URLError(.cannotDecodeContentData) }
+            if !nativeID.isEmpty && update.native == nativeID {
+                try apply(update)
+                return
+            }
+            status("Bản mới thay đổi phần iOS. Đang tải IPA để ký…")
             let url = URL(string: "https://github.com/shunkzm0622/Streamhub/releases/download/ios-build-\\(latest)/ShunEntertainment-unsigned.ipa")!
             let (temp, result) = try await URLSession.shared.download(from: url)
             guard (result as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }

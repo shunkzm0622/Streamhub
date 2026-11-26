@@ -26,6 +26,20 @@ jobs:
           test -s "$app/Web/channels.js"
           xcrun lipo "$app/ShunEntertainment" -verify_arch arm64
           test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$app/Info.plist")" = iphoneos
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          web = pathlib.Path("App/Web")
+          # Hash every input to the native app except the replaceable web resources.
+          paths = subprocess.check_output(["git","ls-files","App","ShunEntertainment.xcodeproj"]).decode().splitlines()
+          digest = hashlib.sha256()
+          for name in sorted(p for p in paths if not p.startswith("App/Web/")):
+              digest.update(name.encode() + b"\0" + hashlib.sha256(pathlib.Path(name).read_bytes()).digest())
+          native = digest.hexdigest()
+          target = pathlib.Path("build/Build/Products/Release-iphoneos/ShunEntertainment.app/Web")
+          (target / "native-id.txt").write_text(native)
+          payload = {"native":native,"build":int(os.environ["GITHUB_RUN_NUMBER"]),"html":(web/"index.html").read_text(),"channels":(web/"channels.js").read_text()}
+          pathlib.Path("web-update.json").write_text(json.dumps(payload,ensure_ascii=False))
+          PY
           mkdir -p package/Payload
           ditto "$app" package/Payload/ShunEntertainment.app
           (cd package && /usr/bin/zip -qry ../ShunEntertainment-unsigned.ipa Payload)
@@ -42,7 +56,7 @@ jobs:
         run: |
           tag="ios-build-$GITHUB_RUN_NUMBER"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" ShunEntertainment-unsigned.ipa --clobber
+            gh release upload "$tag" ShunEntertainment-unsigned.ipa web-update.json --clobber
           else
-            gh release create "$tag" ShunEntertainment-unsigned.ipa --target "$GITHUB_SHA" --title "Shun Entertainment iOS · Build $GITHUB_RUN_NUMBER" --notes "IPA chưa ký dành cho ESign hoặc Feather." --latest=false
+            gh release create "$tag" ShunEntertainment-unsigned.ipa web-update.json --target "$GITHUB_SHA" --title "Shun Entertainment iOS · Build $GITHUB_RUN_NUMBER" --notes "IPA chưa ký dành cho ESign hoặc Feather." --latest=false
           fi
