@@ -190,22 +190,21 @@ struct Television: View {
                 } label: { Label(group.isEmpty ? "Danh mục" : group,systemImage:"line.3.horizontal.decrease.circle").lineLimit(1) }
                 Button { Task { await refresh() } } label: { Image(systemName:"arrow.clockwise").frame(width:36,height:44).controlChip() }.accessibilityLabel("Tải lại danh sách")
             }.padding(.horizontal,10).padding(.vertical,4)
-            List(visible) { station in
-                Button { playback.tune(station) } label: {
-                    HStack {
-                        AsyncImage(url: URL(string:station.logo ?? "")) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName:"tv") }.frame(width:48,height:32)
-                        VStack(alignment:.leading) { Text(station.name).foregroundColor(.primary); Text(station.group).font(.caption).foregroundColor(.secondary) }
-                        Spacer()
-                        if playback.station?.id == station.id { Image(systemName:"speaker.wave.2.fill") }
+            let saved = favorites
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 16) {
+                    ForEach(visible) { station in
+                        StationTile(station: station, favorite: saved.contains(station.id),
+                                    playing: playback.station?.id == station.id,
+                                    play: { playback.tune(station) },
+                                    toggleFavorite: {
+                            var updated = favorites
+                            if !updated.insert(station.id).inserted { updated.remove(station.id) }
+                            if let data = try? JSONEncoder().encode(updated) { favoriteData = data }
+                        })
                     }
-                }.listRowBackground(Color(red:0.06,green:0.095,blue:0.15)).swipeActions {
-                    Button("Yêu thích") {
-                        var set = favorites
-                        if !set.insert(station.id).inserted { set.remove(station.id) }
-                        if let data = try? JSONEncoder().encode(set) { favoriteData = data }
-                    }.tint(.orange)
-                }
-            }.listStyle(.plain)
+                }.padding(12)
+            }
         }.background(Color(red:0.035,green:0.055,blue:0.10)).tint(.mint).sheet(isPresented:$camera) {
             NavigationStack { TrafficCamera().navigationTitle("Traffic Camera").navigationBarTitleDisplayMode(.inline).toolbar { Button("Đóng") { camera = false } } }
         }.task {
@@ -227,5 +226,51 @@ private extension View {
         self.foregroundStyle(.white)
             .background(Color(red:0.10,green:0.16,blue:0.24), in: RoundedRectangle(cornerRadius:10))
             .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(Color.white.opacity(0.16)))
+    }
+}
+
+private struct StationTile: View {
+    let station: Station
+    let favorite: Bool
+    let playing: Bool
+    let play: () -> Void
+    let toggleFavorite: () -> Void
+    private let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+    private var logoURL: URL? {
+        guard let raw = station.logo, let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        return url
+    }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Button(action: play) {
+                VStack(alignment: .leading, spacing: 6) {
+                    shape.fill(Color(red: 0.13, green: 0.19, blue: 0.26))
+                        .aspectRatio(1.7, contentMode: .fit)
+                        .overlay {
+                            AsyncImage(url: logoURL) { phase in
+                                if let image = phase.image {
+                                    image.resizable().scaledToFit().padding(14)
+                                } else {
+                                    Image(systemName: "tv").font(.title).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .clipShape(shape)
+                        .overlay { shape.strokeBorder(playing ? Color.mint : Color.white.opacity(0.12), lineWidth: playing ? 2 : 1) }
+                    Text(station.name).font(.subheadline.weight(.semibold)).lineLimit(2, reservesSpace: true)
+                    Text(station.group).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            Button(action: toggleFavorite) {
+                Image(systemName: favorite ? "heart.fill" : "heart")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(favorite ? Color.pink : Color.white)
+                    .frame(width: 30, height: 30).background(.black.opacity(0.72), in: Circle())
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+             .accessibilityLabel((favorite ? "Bỏ yêu thích " : "Yêu thích ") + station.name)
+        }
     }
 }
