@@ -1,7 +1,5 @@
-name: Test DASH playback on iPhone Simulator
+name: "Archived - Test DASH playback on iPhone Simulator"
 on:
-  push:
-    branches: [test-dash-web-origin]
   workflow_dispatch:
 permissions:
   contents: read
