@@ -130,7 +130,7 @@ struct Television: View {
     private var favorites: Set<String> { (try? JSONDecoder().decode(Set<String>.self, from: favoriteData)) ?? [] }
     private var visible: [Station] {
         let saved = favorites
-        return catalog.filter { (group.isEmpty || $0.group == group) && (!onlyFavorites || saved.contains($0.id)) && (query.isEmpty || $0.name.localizedStandardContains(query)) }
+        return catalog.filter { (group.isEmpty || $0.group == group) && (!onlyFavorites || saved.contains($0.id)) && (query.isEmpty || $0.name.localizedStandardContains(query) || $0.group.localizedStandardContains(query)) }
     }
     private func decode(_ data: Data) throws -> [Station] {
         let rows = try JSONDecoder().decode([Station].self, from: data).filter { !$0.servers.isEmpty }
@@ -151,18 +151,6 @@ struct Television: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Shun Entertainment").font(.headline)
-                Spacer()
-                Menu {
-                    Toggle("Chỉ hiện yêu thích", isOn: $onlyFavorites)
-                    Button("Traffic Camera") { camera = true }
-                    Button(latestIPA == nil ? "Kiểm tra cập nhật ứng dụng" : "Tải Build \(latestBuild)") {
-                        if latestIPA != nil { showUpdate = true } else { Task { await checkUpdate(manual: true) } }
-                    }.disabled(checking)
-                    Button("Cập nhật danh sách") { Task { await refresh() } }
-                } label: { Image(systemName:latestIPA == nil ? "ellipsis.circle" : "arrow.down.circle.fill").font(.title2).frame(width:44,height:44) }
-            }.padding(.horizontal)
             ZStack {
                 Color.black
                 if let layer = playback.layer { VideoSurface(layer: layer).id(ObjectIdentifier(layer)) }
@@ -170,28 +158,38 @@ struct Television: View {
                     Text(playback.station == nil ? "Chọn kênh để xem" : playback.status).font(.caption).padding(8).background(.black.opacity(0.7)).allowsHitTesting(false)
                 }
             }.aspectRatio(16/9, contentMode:.fit)
-            if let current = playback.station {
-                HStack {
-                    Text(current.name).font(.headline).lineLimit(1)
-                    Spacer()
-                    if current.servers.count > 1 {
-                        Menu(current.servers[playback.server].name) {
-                            ForEach(current.servers.indices, id:\.self) { i in
-                                Button(current.servers[i].name) { playback.tune(current,index:i) }
+            HStack(spacing:8) {
+                Text(playback.station?.name ?? "Shun Entertainment").font(.headline).lineLimit(1)
+                Spacer(minLength:0)
+                if let current = playback.station, current.servers.count > 1 {
+                    Menu {
+                        ForEach(current.servers.indices, id:\.self) { i in
+                            Button { playback.tune(current,index:i) } label: {
+                                if i == playback.server { Label(current.servers[i].name, systemImage:"checkmark") }
+                                else { Text(current.servers[i].name) }
                             }
                         }
-                    }
-                    Button { playback.layer?.isPipActive = true } label: { Image(systemName:"pip.enter").frame(width:44,height:44) }
-                }.padding(.horizontal)
-            }
+                    } label: { Text("Server ▾").font(.subheadline).padding(.horizontal,8).frame(height:44).controlChip() }
+                }
+                Button { playback.layer?.isPipActive = true } label: { Label("PiP",systemImage:"pip.enter").font(.subheadline).padding(.horizontal,8).frame(height:44).controlChip() }.disabled(playback.layer == nil)
+                Menu {
+                    Toggle("Chỉ hiện yêu thích", isOn: $onlyFavorites)
+                    Button("Traffic Camera") { camera = true }
+                    Button(latestIPA == nil ? "Kiểm tra cập nhật ứng dụng" : "Tải Build \(latestBuild)") {
+                        if latestIPA != nil { showUpdate = true } else { Task { await checkUpdate(manual: true) } }
+                    }.disabled(checking)
+                    Button("Cập nhật danh sách") { Task { await refresh() } }
+                } label: { Image(systemName:latestIPA == nil ? "ellipsis.circle" : "arrow.down.circle.fill").frame(width:38,height:44).controlChip() }
+            }.padding(.horizontal,10).padding(.vertical,6).background(Color(red:0.06,green:0.10,blue:0.16))
             HStack {
                 Image(systemName:"magnifyingglass")
-                TextField("Tìm kênh",text:$query)
+                TextField("Tìm tên kênh, nhóm…",text:$query)
                 Menu {
                     Button("Tất cả danh mục") { group = "" }
                     ForEach(Set(catalog.map(\.group)).sorted(),id:\.self) { item in Button(item) { group = item } }
                 } label: { Label(group.isEmpty ? "Danh mục" : group,systemImage:"line.3.horizontal.decrease.circle").lineLimit(1) }
-            }.padding(12)
+                Button { Task { await refresh() } } label: { Image(systemName:"arrow.clockwise").frame(width:36,height:44).controlChip() }.accessibilityLabel("Tải lại danh sách")
+            }.padding(.horizontal,10).padding(.vertical,4)
             List(visible) { station in
                 Button { playback.tune(station) } label: {
                     HStack {
@@ -200,7 +198,7 @@ struct Television: View {
                         Spacer()
                         if playback.station?.id == station.id { Image(systemName:"speaker.wave.2.fill") }
                     }
-                }.swipeActions {
+                }.listRowBackground(Color(red:0.06,green:0.095,blue:0.15)).swipeActions {
                     Button("Yêu thích") {
                         var set = favorites
                         if !set.insert(station.id).inserted { set.remove(station.id) }
@@ -208,7 +206,7 @@ struct Television: View {
                     }.tint(.orange)
                 }
             }.listStyle(.plain)
-        }.tint(.mint).sheet(isPresented:$camera) {
+        }.background(Color(red:0.035,green:0.055,blue:0.10)).tint(.mint).sheet(isPresented:$camera) {
             NavigationStack { TrafficCamera().navigationTitle("Traffic Camera").navigationBarTitleDisplayMode(.inline).toolbar { Button("Đóng") { camera = false } } }
         }.task {
             do {
@@ -221,5 +219,13 @@ struct Television: View {
             Button("Để sau", role:.cancel) {}
         } message: { Text("Ký và cài đè IPA để cập nhật ứng dụng.") }
         .alert("Shun Native",isPresented:Binding(get:{ !message.isEmpty },set:{ if !$0 { message = "" } })) { Button("Đóng") { message = "" } } message: { Text(message) }
+    }
+}
+
+private extension View {
+    func controlChip() -> some View {
+        self.foregroundStyle(.white)
+            .background(Color(red:0.10,green:0.16,blue:0.24), in: RoundedRectangle(cornerRadius:10))
+            .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(Color.white.opacity(0.16)))
     }
 }
