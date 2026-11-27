@@ -142,10 +142,10 @@
 			name = "Debug";
 			buildSettings = {
 				PRODUCT_NAME = "ShunEntertainment";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment.Native";
 				GENERATE_INFOPLIST_FILE = "YES";
 				INFOPLIST_FILE = "App/Playback.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
+				INFOPLIST_KEY_CFBundleDisplayName = "Shun Native";
 				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";
@@ -160,10 +160,10 @@
 			name = "Release";
 			buildSettings = {
 				PRODUCT_NAME = "ShunEntertainment";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.shunkzm0622.ShunEntertainment.Native";
 				GENERATE_INFOPLIST_FILE = "YES";
 				INFOPLIST_FILE = "App/Playback.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Shun Entertainment";
+				INFOPLIST_KEY_CFBundleDisplayName = "Shun Native";
 				INFOPLIST_KEY_UILaunchScreen_Generation = "YES";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";

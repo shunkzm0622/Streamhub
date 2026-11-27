@@ -1,7 +1,7 @@
-name: Build Shun Entertainment IPA
+name: Build Shun Native IPA
 on:
   push:
-    branches: [ios-ipa]
+    branches: [ios-native-swiftui]
   workflow_dispatch:
 permissions:
   contents: write
@@ -11,29 +11,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Bundle the grouped iOS channel catalog
-        run: |
-          python3 - <<'PYTHON'
-          import json, os, pathlib
-          catalog = json.loads(pathlib.Path("iptv_channels_grouped.json").read_text())
-          assert isinstance(catalog, list) and catalog and all(row.get("servers") and all(s.get("url") for s in row["servers"]) for row in catalog)
-          pathlib.Path("App/Web/channels.js").write_text("window.bundledChannels = " + json.dumps(catalog, ensure_ascii=False) + ";")
-          PYTHON
-      - name: Bundle MPEG-DASH player for IPA and web updates
-        run: |
-          npm pack --ignore-scripts dashjs@5.3.0 --pack-destination "$RUNNER_TEMP"
-          tar -xOf "$RUNNER_TEMP/dashjs-5.3.0.tgz" package/dist/modern/umd/dash.all.min.js > "$RUNNER_TEMP/dash-player.js"
-          node --check "$RUNNER_TEMP/dash-player.js"
-          python3 - <<'PY'
-          import base64, os, pathlib
-          html = pathlib.Path("App/Web/index.html")
-          source = html.read_text()
-          url = "https://cdn.jsdelivr.net/npm/dashjs@5.3.0/dist/modern/umd/dash.all.min.js"
-          assert source.count(url) == 1
-          player = (pathlib.Path(os.environ["RUNNER_TEMP"]) / "dash-player.js").read_bytes()
-          assert len(player) > 100000
-          html.write_text(source.replace(url, "data:text/javascript;base64," + base64.b64encode(player).decode()))
-          PY
+      - name: Bundle native catalog
+        run: cp iptv_channels_grouped.json App/Web/stations.json
       - name: Build Release for iPhone and iPad
         run: |
           xcodebuild -project ShunEntertainment.xcodeproj -scheme ShunEntertainment \
@@ -45,41 +24,26 @@ jobs:
           set -euo pipefail
           app=build/Build/Products/Release-iphoneos/ShunEntertainment.app
           test -s "$app/ShunEntertainment"
-          test -s "$app/Web/index.html"
-          test -s "$app/Web/channels.js"
+          test -s "$app/Web/stations.json"
           xcrun lipo "$app/ShunEntertainment" -verify_arch arm64
           test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$app/Info.plist")" = iphoneos
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, subprocess
-          web = pathlib.Path("App/Web")
-          # Hash every input to the native app except the replaceable web resources.
-          paths = subprocess.check_output(["git","ls-files","App","ShunEntertainment.xcodeproj"]).decode().splitlines()
-          digest = hashlib.sha256()
-          for name in sorted(p for p in paths if not p.startswith("App/Web/")):
-              digest.update(name.encode() + b"\0" + hashlib.sha256(pathlib.Path(name).read_bytes()).digest())
-          native = digest.hexdigest()
-          target = pathlib.Path("build/Build/Products/Release-iphoneos/ShunEntertainment.app/Web")
-          (target / "native-id.txt").write_text(native)
-          payload = {"native":native,"build":int(os.environ["GITHUB_RUN_NUMBER"]),"html":(web/"index.html").read_text(),"channels":(web/"channels.js").read_text()}
-          pathlib.Path("web-update.json").write_text(json.dumps(payload,ensure_ascii=False))
-          PY
           mkdir -p package/Payload
           ditto "$app" package/Payload/ShunEntertainment.app
-          (cd package && /usr/bin/zip -qry ../ShunEntertainment-unsigned.ipa Payload)
-          unzip -tq ShunEntertainment-unsigned.ipa
+          (cd package && /usr/bin/zip -qry ../ShunNative-unsigned.ipa Payload)
+          unzip -tq ShunNative-unsigned.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: ShunEntertainment-unsigned-IPA
-          path: ShunEntertainment-unsigned.ipa
+          name: ShunNative-unsigned-IPA
+          path: ShunNative-unsigned.ipa
           if-no-files-found: error
 
       - name: Publish downloadable iOS build
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="ios-build-$GITHUB_RUN_NUMBER"
+          tag="ios-native-$GITHUB_RUN_NUMBER"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" ShunEntertainment-unsigned.ipa web-update.json --clobber
+            gh release upload "$tag" ShunNative-unsigned.ipa --clobber
           else
-            gh release create "$tag" ShunEntertainment-unsigned.ipa web-update.json --target "$GITHUB_SHA" --title "Shun Entertainment iOS · Build $GITHUB_RUN_NUMBER" --notes "IPA chưa ký dành cho ESign hoặc Feather." --latest=false
+            gh release create "$tag" ShunNative-unsigned.ipa --target "$GITHUB_SHA" --title "Shun Native SwiftUI · Build $GITHUB_RUN_NUMBER" --notes "IPA chưa ký dành cho ESign hoặc Feather." --latest=false
           fi
