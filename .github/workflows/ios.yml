@@ -11,14 +11,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Bundle the offline channel catalog from main
+      - name: Bundle the grouped iOS channel catalog
         run: |
-          git fetch --depth=1 origin refs/heads/main
-          git show FETCH_HEAD:channels.json > "$RUNNER_TEMP/channels.json"
           python3 - <<'PYTHON'
           import json, os, pathlib
-          catalog = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "channels.json").read_text())
-          assert isinstance(catalog, list) and catalog and all(row.get("url") for row in catalog)
+          catalog = json.loads(pathlib.Path("iptv_channels_grouped.json").read_text())
+          assert isinstance(catalog, list) and catalog and all(row.get("servers") and all(s.get("url") for s in row["servers"]) for row in catalog)
           pathlib.Path("App/Web/channels.js").write_text("window.bundledChannels = " + json.dumps(catalog, ensure_ascii=False) + ";")
           PYTHON
       - name: Bundle MPEG-DASH player for IPA and web updates

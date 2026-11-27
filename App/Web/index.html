@@ -40,7 +40,7 @@
 <body>
 <div class="app">
   <main class="workspace">
-    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button type="button" class="btn btn-soft btn-sm" id="refreshCatalog" aria-label="Tải lại danh sách kênh từ GitHub">↻ Refresh</button></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
+    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><select id="serverSelect" aria-label="Chọn server" hidden></select><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button type="button" class="btn btn-soft btn-sm" id="refreshCatalog" aria-label="Tải lại danh sách kênh từ GitHub">↻ Refresh</button></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
       <div class="brand-links">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
       <button type="button" class="traffic-brand" id="trafficToggle" aria-controls="trafficView" aria-expanded="false"><span class="camera-mark" aria-hidden="true"></span><span id="trafficLabel">Traffic camera</span></button></div>
@@ -111,6 +111,14 @@ function parseJSON(input,base){
     if(typeof node!=='object')return;
     if(visited.has(node))return;visited.add(node);
     if(Array.isArray(node)){node.forEach((item,i)=>descend(item,typeof item==='string'?path:path,depth+1));return;}
+    if (Array.isArray(node.servers)) {
+      const servers = node.servers.filter(server => server && isHttpLink(server.url));
+      if (servers.length) {
+        const channel = channelObj({...node, url: servers[0].url},base);
+        if (channel) output.push({...channel, id: node.id, servers});
+      }
+      return;
+    }
     const linkKey=urlFieldKeys.find(k=>typeof node[k]==='string'&&isHttpLink(node[k]));
     if(linkKey){const url=node[linkKey];const name=firstText(node,['name','title','channel_name','channelName','channel','label','camLocation','location','description'])||path||lastName(url);
       const group=firstText(node,groupKeys)||'JSON';
@@ -372,8 +380,8 @@ function showMediaInfo() {
   }));
 }
 function clearPlayback(){if(ksAttempt === playbackAttempt) window.webkit?.messageHandlers?.ksFallback?.postMessage({action:'stop'});playbackAttempt++;streamCodec='';dashRepresentation=null;if(photoTimer)clearInterval(photoTimer);photoTimer=null;if(hls){hls.destroy();hls=null;}if(dash){try{dash.reset();}catch{}dash=null;}const v=$('video');v.disableRemotePlayback=false;v.removeAttribute('disableremoteplayback');v.pause();v.removeAttribute('src');v.load();v.hidden=true;const img=$('snapshot');img.hidden=true;img.removeAttribute('src');$('stageError').hidden=true;}
-function stopPlayer(){clearPlayback();active=null;showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='Shun Entertainment';renderPlayerButtons();}
-function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
+function stopPlayer(){clearPlayback();active=null;renderServers({});showMediaInfo();$('stagePlaceholder').hidden=false;$('playerCaption').textContent='SẴN SÀNG';$('playerName').textContent='Chưa chọn kênh';$('playerGroup').textContent='Chưa có nguồn phát';$('playerUrl').textContent='Thêm playlist để xem các kênh.';$('playMode').textContent='—';$('playerTag').textContent='Shun Entertainment';renderPlayerButtons();}
+function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.servers?.[0]?.url || active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 let ksAttempt = -1;
 function positionKS(action) {
   const r = $('stage').getBoundingClientRect();
@@ -452,7 +460,25 @@ async function inspectFailedStream(channel, attempt) {
     controller.abort();
   }
 }
-function playChannel(c, format, streamURL = c.url){clearPlayback();active=c;showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
+const serverSelect = $('serverSelect');
+serverSelect.onchange = () => {
+  if (!active?.servers) return;
+  const server = active.servers[serverSelect.selectedIndex];
+  if (server) playChannel({...active, url:server.url});
+};
+function renderServers(channel) {
+  const servers = channel.servers || [];
+  serverSelect.hidden = servers.length < 2;
+  serverSelect.style.display = serverSelect.hidden ? 'none' : '';
+  serverSelect.replaceChildren();
+  if (serverSelect.hidden) return;
+  servers.forEach((server, index) => {
+    const option = new Option(server.name || ('Server ' + (index + 1)), String(index));
+    option.selected = server.url === channel.url;
+    serverSelect.add(option);
+  });
+}
+function playChannel(c, format, streamURL = c.url){clearPlayback();active=c;renderServers(c);showMediaInfo();$('stagePlaceholder').hidden=true;$('playerName').textContent=c.name;$('playerCaption').textContent='ĐANG TẢI KÊNH';$('playerGroup').textContent=c.group+' · '+c.sourceName;$('playerUrl').textContent=c.url;$('playerUrl').title=c.url;$('playerTag').textContent=c.kind==='image'?'CAMERA':'LIVE';$('playMode').textContent=c.kind==='image'?'ẢNH':'VIDEO';renderPlayerButtons();renderList();
   if(location.protocol==='https:'&&c.url.startsWith('http:'))showToast('Nguồn HTTP trên trang HTTPS có thể bị trình duyệt chặn (mixed content). Hãy dùng link HTTPS.', 'warn');
   if(c.kind==='image'){const img=$('snapshot');img.hidden=false;let tick=()=>{if(active?.key!==c.key)return;try{const u=new URL(c.url);u.searchParams.set('_streamhub_ts',Date.now());img.src=u.toString();}catch{img.src=c.url;}};img.onerror=()=>stageError('Không tải được ảnh camera. Có thể link đã hết hạn, bị chặn hoặc yêu cầu cookie/đăng nhập.');img.onload=()=>{showMediaInfo();$('stageError').hidden=true;$('playerCaption').textContent='ĐANG CẬP NHẬT ẢNH';};tick();photoTimer=setInterval(tick,10000);return;}
   let video = $('video');
@@ -526,7 +552,7 @@ media.addEventListener('error',()=>{if(!active || media !== $('video') || media.
   for (const event of ['loadeddata','playing','emptied','error','webkitpresentationmodechanged']) media.addEventListener(event,updatePiP);
 }
 bindPlayerEvents($('video'));
-$('retryBtn').addEventListener('click',()=>{if(active)playChannel(active);});$('favoriteCurrent').addEventListener('click',()=>{if(active)toggleFavorite(active.url);});
+$('retryBtn').addEventListener('click',()=>{if(active)playChannel(active);});$('favoriteCurrent').addEventListener('click',()=>{if(active)toggleFavorite(active.servers?.[0]?.url || active.url);});
 $('copyCurrent').addEventListener('click',async()=>{if(!active)return;try{await navigator.clipboard.writeText(active.url);showToast('Đã sao chép link stream.');}catch{showToast('Trình duyệt không cho phép sao chép tự động. Link đang hiển thị bên dưới trình phát.', 'warn');}});
 $('openCurrent').addEventListener('click',()=>{if(active)window.open(active.url,'_blank','noopener,noreferrer');});
 $('fullscreenBtn').addEventListener('click',()=>{const stage=$('stage');if(stage.requestFullscreen)stage.requestFullscreen().catch(()=>showToast('Không thể chuyển chế độ toàn màn hình.', 'warn'));});
@@ -556,7 +582,7 @@ if(initialUrl&&safeUrl(initialUrl)){
   const u=safeUrl(initialUrl);const previous=sources.find(x=>x.origin===u);const source=previous||addSource('Stream từ liên kết',[channelObj({name:lastName(u),url:u,group:'Stream trực tiếp'})],{origin:u});
   const c=channels.find(x=>x.sourceId===source.id);if(c)playChannel(c);
 }
-const catalogURL = 'https://raw.githubusercontent.com/shunkzm0622/Streamhub/main/channels.json';
+const catalogURL = 'https://raw.githubusercontent.com/shunkzm0622/Streamhub/ios-ipa/iptv_channels_grouped.json';
 const defaultOrigin = 'github:channels.json';
 const defaultName = 'Danh sách mặc định từ GitHub';
 
@@ -600,7 +626,7 @@ async function loadGithubDefault(manual = false) {
   }
 }
 refreshCatalog.addEventListener('click', () => loadGithubDefault(true));
-if (!sources.some(s => s.origin === defaultOrigin && s.items.length) && window.bundledChannels?.length) {
+if (!sources.some(s => s.origin === defaultOrigin && s.items.some(item => item.servers?.length)) && window.bundledChannels?.length) {
   applyCatalog(parseJSON(window.bundledChannels, catalogURL));
 }
 loadGithubDefault();
