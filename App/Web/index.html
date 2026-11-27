@@ -40,7 +40,7 @@
 <body>
 <div class="app">
   <main class="workspace">
-    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
+    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button type="button" class="btn btn-soft btn-sm" id="refreshCatalog" aria-label="Tải lại danh sách kênh từ GitHub">↻ Refresh</button></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
       <div class="brand-links">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
       <button type="button" class="traffic-brand" id="trafficToggle" aria-controls="trafficView" aria-expanded="false"><span class="camera-mark" aria-hidden="true"></span><span id="trafficLabel">Traffic camera</span></button></div>
@@ -581,20 +581,25 @@ function applyCatalog(items) {
   }
 }
 
-let syncingCatalog = false;
-async function loadGithubDefault() {
-  if (syncingCatalog) return;
-  syncingCatalog = true;
+const refreshCatalog = $('refreshCatalog');
+async function loadGithubDefault(manual = false) {
+  if (refreshCatalog.disabled) return;
+  refreshCatalog.disabled = true;
+  refreshCatalog.textContent = 'Đang tải…';
   try {
-    const items = parseJSON(JSON.parse(await loadRemote(catalogURL)), catalogURL);
+    const items = parseJSON(JSON.parse(await loadRemote(manual ? catalogURL + '?refresh=' + Date.now() : catalogURL)), catalogURL);
     if (!items.length) throw Error('Danh sách trống');
     applyCatalog(items);
+    if (manual) showToast('Đã tải lại ' + items.length.toLocaleString('vi-VN') + ' kênh từ GitHub.');
   } catch (error) {
+    if (manual) showToast('Chưa tải được danh sách từ GitHub. Bạn có thể thử lại.', 'warn');
     console.info('Chưa tải được danh sách kênh từ main.', error.message);
   } finally {
-    syncingCatalog = false;
+    refreshCatalog.disabled = false;
+    refreshCatalog.textContent = '↻ Refresh';
   }
 }
+refreshCatalog.addEventListener('click', () => loadGithubDefault(true));
 if (!sources.some(s => s.origin === defaultOrigin && s.items.length) && window.bundledChannels?.length) {
   applyCatalog(parseJSON(window.bundledChannels, catalogURL));
 }
