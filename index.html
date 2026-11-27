@@ -459,7 +459,7 @@ async function loadGithubDefault(){
   // Chỉ thử ở web thật, không dùng khi mở trực tiếp file:// hoặc about:blank.
   if(!/^https?:$/.test(location.protocol))return;
   try{
-    const res=await fetch(new URL('./channels.json',location.href),{cache:'no-store'});
+    const res=await fetch('https://raw.githubusercontent.com/shunkzm0622/Streamhub/main/channels.json',{cache:'no-store'});
     if(!res.ok)return;const parsed=parseContent(await res.text(),res.url);if(!parsed.length)return;
     const origin='github:channels.json';const existing=sources.find(s=>s.origin===origin);
     if(existing){existing.items=parsed;existing.name='Danh sách mặc định từ GitHub';rebuild();persist();renderAll();}
