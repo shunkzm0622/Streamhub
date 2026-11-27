@@ -36,11 +36,17 @@
   .brand-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px 24px}.traffic-brand{display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:3px 8px;border:1px solid transparent;border-radius:12px;background:transparent;color:#eaf0ff;font:inherit;font-size:19px;font-weight:750;letter-spacing:-.4px}.traffic-brand:hover,.traffic-brand[aria-expanded="true"]{background:#17283b;border-color:#355267}.traffic-brand:focus-visible{outline:2px solid #79e3d7;outline-offset:2px}.camera-mark{position:relative;width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,#59ddd3,#7772f9)}.camera-mark::before,.camera-mark::after{content:"";position:absolute;background:#102135}.camera-mark::before{left:7px;top:12px;width:15px;height:12px;border-radius:3px}.camera-mark::after{left:23px;top:12px;width:6px;height:12px;clip-path:polygon(0 30%,100% 0,100% 100%,0 70%)}@media(max-width:790px){.topbar{flex-wrap:wrap}.brand-links{gap:4px 12px}}
   html,body,.app,.workspace{height:100%;min-height:0;overflow:hidden;margin:0}.workspace{padding:0;display:flex;flex-direction:column}.watch{height:100%;display:flex;flex-direction:column;min-height:0}.pinned{flex:none;background:#10192b}.pinned .stage{min-height:0;height:min(56.25vw,40vh);aspect-ratio:auto}.now,.tools,.option-title{display:flex;align-items:center;gap:8px;padding:6px 10px}.now strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.now button{min-height:40px}.panel{display:flex;flex-direction:column;flex:1;min-height:0;border:0;border-radius:0;padding:0}.tools .search,.tools .mobile-category{margin:0;min-width:0}.tools .search{flex:1}.tools .mobile-category{width:35%}.channels-grid{display:flex;flex-direction:column;flex:1;min-height:0;max-height:none;padding:0 8px 8px;gap:4px;overflow:auto}.channel{flex:none}.stage-placeholder h2{font-size:17px}#options{color:#eaf0ff;background:#10192b;border:1px solid #34465d;border-radius:14px;width:min(95vw,470px);max-height:85vh;overflow:auto}#options::backdrop{background:#0009}.option-title{justify-content:space-between}#options .brand-links,#options .top-actions,#options .panel-controls{padding:8px;flex-wrap:wrap}#trafficView{min-height:0;flex:1}#trafficView iframe{height:100%;min-height:0}#backIPTV[hidden]{display:none}
 </style>
-</head>
+<style>
+#serverControl {position:relative;min-height:40px;flex:none}
+#serverControl[hidden] {display:none}
+#serverSelect {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+#serverControl:focus-within {outline:2px solid #6ee6dd}
+#options .option-title {position:sticky;top:0;z-index:1;background:#10192b}
+</style></head>
 <body>
 <div class="app">
   <main class="workspace">
-    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><select id="serverSelect" aria-label="Chọn server" hidden></select><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button type="button" class="btn btn-soft btn-sm" id="refreshCatalog" aria-label="Tải lại danh sách kênh từ GitHub">↻ Refresh</button></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
+    <div id="iptvView" class="watch"><section class="pinned"><div class="stage" id="stage"><video id="video" controls playsinline preload="none" hidden></video><img id="snapshot" alt="Ảnh camera" hidden /><div class="stage-placeholder" id="stagePlaceholder"><h2>Chọn kênh để xem</h2></div><div class="stage-error" id="stageError" hidden></div></div><div class="now"><strong id="playerName">Shun Entertainment</strong><label id="serverControl" class="btn" hidden><span aria-hidden="true">Server ▾</span><select id="serverSelect" aria-label="Chọn server"></select></label><button id="pip" class="btn" disabled aria-label="Thu nhỏ video Picture-in-Picture">▣ PiP</button><button id="openOptions" class="btn" aria-label="Mở tuỳ chọn">•••</button></div></section><section class="panel"><div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Tìm tên kênh, nhóm..." aria-label="Tìm kiếm kênh" /></label><select class="mobile-category" id="mobileCategory" aria-label="Lọc theo nhóm"><option value="all">Tất cả</option></select><button type="button" class="btn btn-soft btn-sm" id="refreshCatalog" aria-label="Tải lại danh sách kênh từ GitHub">↻ Refresh</button></div><span id="resultCount" hidden></span><div class="channels-grid" id="channelsList"></div></section></div><dialog id="options"><div class="option-title"><strong>Tuỳ chọn</strong><button id="closeOptions" class="btn">Đóng</button></div><button class="btn" id="checkUpdate">Cập nhật ứng dụng</button><p id="updateStatus" role="status"></p>
       <div class="brand-links">
       <div class="logo"><div class="logo-mark">▶</div><div><h1 class="logo-name">Shun Entertainment</h1><div class="logo-sub">IPTV & CAMERA PLAYER</div></div></div>
       <button type="button" class="traffic-brand" id="trafficToggle" aria-controls="trafficView" aria-expanded="false"><span class="camera-mark" aria-hidden="true"></span><span id="trafficLabel">Traffic camera</span></button></div>
@@ -384,7 +390,8 @@ function stopPlayer(){clearPlayback();active=null;renderServers({});showMediaInf
 function renderPlayerButtons(){for(const id of ['retryBtn','favoriteCurrent','copyCurrent','openCurrent','fullscreenBtn'])$(id).disabled=!active;if(active)$('favoriteCurrent').textContent=(favorites.has(active.servers?.[0]?.url || active.url)?'★ Đã yêu thích':'☆ Yêu thích');}
 let ksAttempt = -1;
 function positionKS(action) {
-  const r = $('stage').getBoundingClientRect();
+  const covered = $('options').open || $('importModal').classList.contains('open');
+  const r = covered ? {x:0,y:0,width:0,height:0} : $('stage').getBoundingClientRect();
   window.webkit.messageHandlers.ksFallback.postMessage({action,attempt:playbackAttempt,url:active.url,x:r.x,y:r.y,w:r.width,h:r.height});
 }
 function ksStatus(attempt, message) {
@@ -468,10 +475,9 @@ serverSelect.onchange = () => {
 };
 function renderServers(channel) {
   const servers = channel.servers || [];
-  serverSelect.hidden = servers.length < 2;
-  serverSelect.style.display = serverSelect.hidden ? 'none' : '';
+  $('serverControl').hidden = servers.length < 2;
   serverSelect.replaceChildren();
-  if (serverSelect.hidden) return;
+  if ($('serverControl').hidden) return;
   servers.forEach((server, index) => {
     const option = new Option(server.name || ('Server ' + (index + 1)), String(index));
     option.selected = server.url === channel.url;
@@ -635,7 +641,18 @@ $('checkUpdate').onclick = () => {
   window.webkit.messageHandlers.checkUpdate.postMessage('check');
 };
 const options = $('options');
-$('openOptions').onclick = () => options.showModal();
+function syncPlayerOverlay() {
+  if (active && ksAttempt === playbackAttempt) positionKS('layout');
+}
+const modalObserver = new MutationObserver(syncPlayerOverlay);
+modalObserver.observe(options, {attributes:true, attributeFilter:['open']});
+modalObserver.observe($('importModal'), {attributes:true, attributeFilter:['class']});
+$('openOptions').onclick = () => {options.showModal(); syncPlayerOverlay();};
+options.addEventListener('click', event => {
+  if (event.target !== options) return;
+  const r = options.getBoundingClientRect();
+  if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) options.close();
+});
 $('closeOptions').onclick = () => options.close();
 $('backIPTV').onclick = () => $('trafficToggle').click();
 for (const id of ['openImport','manageSources','trafficToggle','showDemo']) $(id).addEventListener('click', () => options.close());
