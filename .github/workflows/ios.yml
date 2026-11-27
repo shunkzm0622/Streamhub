@@ -2,6 +2,9 @@ name: Build Shun Native IPA
 on:
   push:
     branches: [ios-native-swiftui]
+    paths-ignore:
+      - native-ui.json
+      - iptv_channels_grouped.json
   workflow_dispatch:
 permissions:
   contents: write

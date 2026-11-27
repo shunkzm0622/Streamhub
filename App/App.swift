@@ -138,26 +138,21 @@ struct Television: View {
         return rows
     }
     private var cache: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("stations.json") }
-    private func refresh() async {
+    @State private var fullscreen = false
+    @State private var style = ChannelStyle()
+    @AppStorage("nativeChannelStyle.v1") private var cachedStyle = Data()
+    @MainActor private func refreshStyle(manual: Bool) async {
         do {
-            let url = URL(string:"https://raw.githubusercontent.com/shunkzm0622/Streamhub/ios-native-swiftui/iptv_channels_grouped.json")!
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let url = URL(string:"https://raw.githubusercontent.com/shunkzm0622/Streamhub/ios-native-swiftui/native-ui.json")!
+            let (data, response) = try await URLSession.shared.data(for: URLRequest(url:url, cachePolicy:.reloadIgnoringLocalCacheData, timeoutInterval:12))
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-            let updated = try decode(data)
-            try data.write(to: cache, options: .atomic)
-            catalog = updated
-            message = "Đã cập nhật \(updated.count) kênh."
-        } catch { message = error.localizedDescription }
+            let updated = try ChannelStyle.read(data)
+            cachedStyle = data
+            style = updated
+            if manual { message = "Đã áp dụng cấu hình giao diện." }
+        } catch { if manual { message = "Chưa cập nhật được giao diện. " + error.localizedDescription } }
     }
-    var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Color.black
-                if let layer = playback.layer { VideoSurface(layer: layer).id(ObjectIdentifier(layer)) }
-                if !playback.status.isEmpty || playback.station == nil {
-                    Text(playback.station == nil ? "Chọn kênh để xem" : playback.status).font(.caption).padding(8).background(.black.opacity(0.7)).allowsHitTesting(false)
-                }
-            }.aspectRatio(16/9, contentMode:.fit)
+    @ViewBuilder private var browser: some View {
             HStack(spacing:8) {
                 Text(playback.station?.name ?? "Shun Entertainment").font(.headline).lineLimit(1)
                 Spacer(minLength:0)
@@ -178,6 +173,7 @@ struct Television: View {
                     Button(latestIPA == nil ? "Kiểm tra cập nhật ứng dụng" : "Tải Build \(latestBuild)") {
                         if latestIPA != nil { showUpdate = true } else { Task { await checkUpdate(manual: true) } }
                     }.disabled(checking)
+                    Button("Cập nhật giao diện") { Task { await refreshStyle(manual: true) } }
                     Button("Cập nhật danh sách") { Task { await refresh() } }
                 } label: { Image(systemName:latestIPA == nil ? "ellipsis.circle" : "arrow.down.circle.fill").frame(width:38,height:44).controlChip() }
             }.padding(.horizontal,10).padding(.vertical,6).background(Color(red:0.06,green:0.10,blue:0.16))
@@ -192,9 +188,9 @@ struct Television: View {
             }.padding(.horizontal,10).padding(.vertical,4)
             let saved = favorites
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 16) {
+                LazyVGrid(columns: style.layout == "list" ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: CGFloat(style.thumbnailWidth)), spacing: 12)], spacing: 16) {
                     ForEach(visible) { station in
-                        StationTile(station: station, favorite: saved.contains(station.id),
+                        StationTile(style: style, station: station, favorite: saved.contains(station.id),
                                     playing: playback.station?.id == station.id,
                                     play: { playback.tune(station) },
                                     toggleFavorite: {
@@ -205,13 +201,50 @@ struct Television: View {
                     }
                 }.padding(12)
             }
-        }.background(Color(red:0.035,green:0.055,blue:0.10)).tint(.mint).sheet(isPresented:$camera) {
+
+    }
+    private func refresh() async {
+        do {
+            let url = URL(string:"https://raw.githubusercontent.com/shunkzm0622/Streamhub/ios-native-swiftui/iptv_channels_grouped.json")!
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            let updated = try decode(data)
+            try data.write(to: cache, options: .atomic)
+            catalog = updated
+            message = "Đã cập nhật \(updated.count) kênh."
+        } catch { message = error.localizedDescription }
+    }
+    var body: some View {
+        GeometryReader { geometry in
+          let landscape = geometry.size.width > geometry.size.height
+          VStack(spacing: 0) {
+            ZStack {
+                Color.black
+                if let layer = playback.layer { VideoSurface(layer: layer).id(ObjectIdentifier(layer)) }
+                if !playback.status.isEmpty || playback.station == nil {
+                    Text(playback.station == nil ? "Chọn kênh để xem" : playback.status).font(.caption).padding(8).background(.black.opacity(0.7)).allowsHitTesting(false)
+                }
+            }.frame(maxWidth:.infinity).frame(height: fullscreen ? geometry.size.height : min(geometry.size.width * 9/16, geometry.size.height * 0.52))
+            .overlay(alignment:.topTrailing) {
+                if playback.station != nil {
+                    Button { fullscreen.toggle() } label: {
+                        Image(systemName: fullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").frame(width:44,height:44).background(.black.opacity(0.65), in: Circle())
+                    }.accessibilityLabel(fullscreen ? "Thoát toàn màn hình" : "Toàn màn hình").padding(8)
+                }
+            }
+            if !fullscreen { browser }
+          }.onChange(of: landscape) { fullscreen = $0 && playback.station != nil }
+           .onChange(of: playback.station?.id) { _ in if landscape { fullscreen = playback.station != nil } }
+
+        }.statusBarHidden(fullscreen).background(Color.black.ignoresSafeArea()).background(Color(red:0.035,green:0.055,blue:0.10)).tint(.mint).sheet(isPresented:$camera) {
             NavigationStack { TrafficCamera().navigationTitle("Traffic Camera").navigationBarTitleDisplayMode(.inline).toolbar { Button("Đóng") { camera = false } } }
         }.task {
             do {
                 if let data = try? Data(contentsOf: cache), let rows = try? decode(data) { catalog = rows }
                 else if let url = Bundle.main.url(forResource:"stations",withExtension:"json",subdirectory:"Web") { catalog = try decode(Data(contentsOf:url)) }
             } catch { message = error.localizedDescription }
+            if let stored = try? ChannelStyle.read(cachedStyle) { style = stored }
+            await refreshStyle(manual: false)
             await checkUpdate(manual: false)
         }.confirmationDialog("Shun Native Build \(latestBuild)", isPresented:$showUpdate, titleVisibility:.visible) {
             if let url = latestIPA { Link("Tải IPA từ GitHub", destination:url) }
@@ -229,13 +262,28 @@ private extension View {
     }
 }
 
+private struct ChannelStyle: Codable {
+    var schemaVersion = 1
+    var layout = "grid"
+    var thumbnailWidth = 145
+    var cornerRadius = 16
+    var heartCorner = "topTrailing"
+    static func read(_ data: Data) throws -> Self {
+        let style = try JSONDecoder().decode(Self.self, from:data)
+        guard style.schemaVersion == 1, ["grid","list"].contains(style.layout),
+              (96...260).contains(style.thumbnailWidth), (0...36).contains(style.cornerRadius),
+              ["topLeading","topTrailing"].contains(style.heartCorner) else { throw URLError(.cannotParseResponse) }
+        return style
+    }
+}
 private struct StationTile: View {
+    let style: ChannelStyle
     let station: Station
     let favorite: Bool
     let playing: Bool
     let play: () -> Void
     let toggleFavorite: () -> Void
-    private let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: CGFloat(style.cornerRadius), style: .continuous) }
     private var logoURL: URL? {
         guard let raw = station.logo, let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
               ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return nil }
@@ -243,9 +291,11 @@ private struct StationTile: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: style.heartCorner == "topLeading" ? .topLeading : .topTrailing) {
             Button(action: play) {
-                VStack(alignment: .leading, spacing: 6) {
+                let row = style.layout == "list"
+                let layout = row ? AnyLayout(HStackLayout(spacing: 10)) : AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                layout {
                     shape.fill(Color(red: 0.13, green: 0.19, blue: 0.26))
                         .aspectRatio(1.7, contentMode: .fit)
                         .overlay {
@@ -259,8 +309,11 @@ private struct StationTile: View {
                         }
                         .clipShape(shape)
                         .overlay { shape.strokeBorder(playing ? Color.mint : Color.white.opacity(0.12), lineWidth: playing ? 2 : 1) }
+                    .frame(width: row ? CGFloat(style.thumbnailWidth) : nil)
+                    VStack(alignment:.leading,spacing:4) {
                     Text(station.name).font(.subheadline.weight(.semibold)).lineLimit(2, reservesSpace: true)
                     Text(station.group).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
             Button(action: toggleFavorite) {
