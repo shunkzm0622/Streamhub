@@ -81,6 +81,50 @@ struct Television: View {
     @State private var group = ""
     @State private var camera = false
     @State private var message = ""
+    @State private var latestIPA: URL?
+    @State private var latestBuild = 0
+    @State private var checking = false
+    @State private var showUpdate = false
+    private struct NativeRelease: Decodable {
+        struct Asset: Decodable { let name: String; let browser_download_url: URL }
+        let tag_name: String
+        let draft: Bool
+        let prerelease: Bool
+        let assets: [Asset]
+    }
+    @MainActor private func checkUpdate(manual: Bool) async {
+        guard !checking else { return }
+        checking = true
+        defer { checking = false }
+        do {
+            let installed = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
+            var page = 1
+            var best = installed
+            var download: URL?
+            while true {
+                let url = URL(string: "https://api.github.com/repos/shunkzm0622/Streamhub/releases?per_page=100&page=\(page)")!
+                let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20))
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+                let releases = try JSONDecoder().decode([NativeRelease].self, from: data)
+                for release in releases where !release.draft && !release.prerelease && release.tag_name.hasPrefix("ios-native-") {
+                    guard let build = Int(release.tag_name.dropFirst("ios-native-".count)), build > best,
+                          let asset = release.assets.first(where: { $0.name == "ShunNative-unsigned.ipa" }) else { continue }
+                    best = build
+                    download = asset.browser_download_url
+                }
+                if releases.count < 100 { break }
+                page += 1
+            }
+            latestIPA = download
+            latestBuild = best
+            if manual {
+                if download != nil { showUpdate = true }
+                else { message = "Bạn đang dùng Shun Native Build \(installed), phiên bản mới nhất." }
+            }
+        } catch {
+            if manual { message = "Chưa kiểm tra được bản mới. \(error.localizedDescription)" }
+        }
+    }
     @State private var onlyFavorites = false
     @AppStorage("nativeFavorites") private var favoriteData = Data()
     private var favorites: Set<String> { (try? JSONDecoder().decode(Set<String>.self, from: favoriteData)) ?? [] }
@@ -113,8 +157,11 @@ struct Television: View {
                 Menu {
                     Toggle("Chỉ hiện yêu thích", isOn: $onlyFavorites)
                     Button("Traffic Camera") { camera = true }
+                    Button(latestIPA == nil ? "Kiểm tra cập nhật ứng dụng" : "Tải Build \(latestBuild)") {
+                        if latestIPA != nil { showUpdate = true } else { Task { await checkUpdate(manual: true) } }
+                    }.disabled(checking)
                     Button("Cập nhật danh sách") { Task { await refresh() } }
-                } label: { Image(systemName:"ellipsis.circle").font(.title2).frame(width:44,height:44) }
+                } label: { Image(systemName:latestIPA == nil ? "ellipsis.circle" : "arrow.down.circle.fill").font(.title2).frame(width:44,height:44) }
             }.padding(.horizontal)
             ZStack {
                 Color.black
@@ -168,6 +215,11 @@ struct Television: View {
                 if let data = try? Data(contentsOf: cache), let rows = try? decode(data) { catalog = rows }
                 else if let url = Bundle.main.url(forResource:"stations",withExtension:"json",subdirectory:"Web") { catalog = try decode(Data(contentsOf:url)) }
             } catch { message = error.localizedDescription }
-        }.alert("Danh sách kênh",isPresented:Binding(get:{ !message.isEmpty },set:{ if !$0 { message = "" } })) { Button("Đóng") { message = "" } } message: { Text(message) }
+            await checkUpdate(manual: false)
+        }.confirmationDialog("Shun Native Build \(latestBuild)", isPresented:$showUpdate, titleVisibility:.visible) {
+            if let url = latestIPA { Link("Tải IPA từ GitHub", destination:url) }
+            Button("Để sau", role:.cancel) {}
+        } message: { Text("Ký và cài đè IPA để cập nhật ứng dụng.") }
+        .alert("Shun Native",isPresented:Binding(get:{ !message.isEmpty },set:{ if !$0 { message = "" } })) { Button("Đóng") { message = "" } } message: { Text(message) }
     }
 }
