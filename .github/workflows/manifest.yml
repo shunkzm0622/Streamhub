@@ -1,7 +1,6 @@
-name: Check VTV10 stream metadata
+name: "Archived - Check VTV10 stream metadata"
 on:
-  push:
-    branches: [test-mpd-manifests]
+  workflow_dispatch:
 permissions: {}
 jobs:
   metadata:
